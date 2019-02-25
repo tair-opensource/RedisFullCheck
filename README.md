@@ -19,7 +19,7 @@ version rules: a.b.c.<br>
 
 | branch name | rules |
 | - | :- |
-| master | master branch, do not allowed push code. store the latest stable version. |
+| master | master branch, do not allowed push code. store the latest stable version. develop branch will merge into this branch once new version created. |
 | develop | develop branch. all the bellowing branches fork from this. |
 | feature-\* | new feature branch. forked from develop branch and then merge back after finish developing, testing, and code review. |
 | bugfix-\* | bugfix branch. forked from develop branch and then merge back after finish developing, testing, and code review. |
