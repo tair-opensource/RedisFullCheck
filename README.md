@@ -1,4 +1,5 @@
-redis-full-check is used to compare whether two redis have the same data.
+redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.
+Thanks to the Douyu's WSD team for the support. 感谢斗鱼公司的web服务部提供的支持。
 
 * [中文文档](https://yq.aliyun.com/articles/690463)
 
