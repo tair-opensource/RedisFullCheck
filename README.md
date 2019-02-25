@@ -1,17 +1,17 @@
-redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.
-Thanks to the Douyu's WSD team for the support. 感谢斗鱼公司的web服务部提供的支持。
+redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.<br>
+Thanks to the Douyu's WSD team for the support. 感谢斗鱼公司的web服务部提供的支持。<br>
 
 * [中文文档](https://yq.aliyun.com/articles/690463)
 
 # redis-full-check
 ---
-redis-full-check is developed and maintained by NoSql Team in Alibaba-Cloud.
+redis-full-check is developed and maintained by NoSql Team in Alibaba-Cloud.<br>
 redis-full-check performs full data verification by comparing the data of the source database and the destination database. The entire check process consists of multiple comparisons, in every comparison, redis-full-check fetches data from two dabatases and then compared, the inconsistent data is put into sqlite3 db for the next comparison. By this iteratively comparing method, the difference continues to converge. The following figure shows the dataflow. In every comparison which is the yellow box, redis-full-check fetches all keys firstly. After that, it runs comparison and stores the difference result(key and field) into the sqlite3 db which is the position that keys and fields can be fetched in next round instead of the source database.<br>
 ![dataflow.png](https://github.com/aliyun/redis-full-check/blob/master/resources/dataflow.png)<br>
 redis-full-check only checks whether the target database is a subset of the source database. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link.<br>
 
 # Code branch rules
-version rules: a.b.c.
+version rules: a.b.c.<br>
 
 *  a: major version
 *  b: minor version. even number means stable version.
@@ -19,13 +19,13 @@ version rules: a.b.c.
 
 | branch name | rules |
 | - | :- |
-| master | master branch, do not allowed push code. store the latest stable version. |
+| master | master branch, do not allowed push code. store the latest stable version. develop branch will merge into this branch once new version created. |
 | develop | develop branch. all the bellowing branches fork from this. |
 | feature-\* | new feature branch. forked from develop branch and then merge back after finish developing, testing, and code review. |
 | bugfix-\* | bugfix branch. forked from develop branch and then merge back after finish developing, testing, and code review. |
 | improve-\* | improvement branch. forked from develop branch and then merge back after finish developing, testing, and code review.  |
 
-tag rules:
+tag rules:<br>
 add tag when releasing: "release-v{version}-{date}". for example: "release-v1.0.2-20180628"
 
 # Paramters
