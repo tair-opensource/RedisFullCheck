@@ -1,17 +1,17 @@
-redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.<br>
+Redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.<br>
 Thanks to the Douyu's WSD team for the support. 感谢斗鱼公司的web服务部提供的支持。<br>
 
 * [中文文档](https://yq.aliyun.com/articles/690463)
 
 # redis-full-check
 ---
-redis-full-check is developed and maintained by NoSql Team in Alibaba-Cloud.<br>
-redis-full-check performs full data verification by comparing the data of the source database and the destination database. The entire check process consists of multiple comparisons, in every comparison, redis-full-check fetches data from two dabatases and then compared, the inconsistent data is put into sqlite3 db for the next comparison. By this iteratively comparing method, the difference continues to converge. The following figure shows the dataflow. In every comparison which is the yellow box, redis-full-check fetches all keys firstly. After that, it runs comparison and stores the difference result(key and field) into the sqlite3 db which is the position that keys and fields can be fetched in next round instead of the source database.<br>
+Redis-full-check is developed and maintained by NoSQL Team in Alibaba-Cloud Database department.<br>
+Redis-full-check performs full data verification by comparing the data of the source database and the destination database. The entire check process consists of multiple comparisons, in every comparison, redis-full-check fetches data from two dabatases and then compared, the inconsistent data is put into sqlite3 db for the next comparison. By this iteratively comparing method, the difference continues to converge. The following figure shows the dataflow. In every comparison which is the yellow box, redis-full-check fetches all keys firstly. After that, it runs comparison and stores the difference result(key and field) into the sqlite3 db which is the position that keys and fields can be fetched in next round instead of the source database.<br>
 ![dataflow.png](https://github.com/aliyun/redis-full-check/blob/master/resources/dataflow.png)<br>
-redis-full-check only checks whether the target database is a subset of the source database. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link.<br>
+Redis-full-check only checks whether the target database is a subset of the source database. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link.<br>
 
 # Code branch rules
-version rules: a.b.c.<br>
+Version rules: a.b.c.<br>
 
 *  a: major version
 *  b: minor version. even number means stable version.
@@ -25,8 +25,8 @@ version rules: a.b.c.<br>
 | bugfix-\* | bugfix branch. forked from develop branch and then merge back after finish developing, testing, and code review. |
 | improve-\* | improvement branch. forked from develop branch and then merge back after finish developing, testing, and code review.  |
 
-tag rules:<br>
-add tag when releasing: "release-v{version}-{date}". for example: "release-v1.0.2-20180628"
+Tag rules:<br>
+Add tag when releasing: "release-v{version}-{date}". for example: "release-v1.0.2-20180628"
 
 # Paramters
 ```
@@ -42,7 +42,8 @@ Application Options:
       --targetauthtype=AUTH-TYPE    useless for opensource redis, valid value:auth/adminauth (default: auth)
   -d, --db=Sqlite3-DB-FILE          sqlite3 db file for store result. If exist, it will be removed and a new file is created. (default: result.db)
       --comparetimes=COUNT          Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison will be done on the previous results. (default: 3)
-  -m, --comparemode=                compare mode, 1: compare full value, 2: only compare value length, 3: only compare keys outline (default: 2)
+  -m, --comparemode=                compare mode, 1: compare full value, 2: only compare value length, 3: only compare keys outline, 4: compare full value, but only compare value length when meets big key
+                                    (default: 2)
       --id=                         used in metric, run id (default: unknown)
       --jobid=                      used in metric, job id (default: unknown)
       --taskid=                     used in metric, task id (default: unknown)
@@ -53,10 +54,12 @@ Application Options:
       --log=FILE                    log file, if not specified, log is put to console
       --result=FILE                 store all diff result, format is 'db	diff-type	key	field'
       --metric=FILE                 metrics file
+      --bigkeythreshold=COUNT
   -v, --version
 
 Help Options:
   -h, --help                        Show this help message
+
 ```
 
 # Usage
@@ -66,3 +69,25 @@ Help Options:
 *  GOPATH=\`pwd\`/../..; govendor sync     #please note: must install govendor first and then pull all dependencies
 *  cd ../../ && ./build.sh
 *  ./redis-full-check -s $(source_redis_ip_port) -p $(source_password) -t $(target_redis_ip_port) -a $(target_password) # these parameters should be given by users
+
+Here comes the sqlite3 example to display the conflict result:<br>
+```
+$ sqlite3 result.db.3  # result.db.x shows the x-round comparison conflict result.
+
+sqlite> select * from key;
+id          key              type        conflict_type  db          source_len  target_len
+----------  ---------------  ----------  -------------  ----------  ----------  ----------
+1           keydiff1_string  string      value          1           6           6
+2           keydiff_hash     hash        value          0           2           1
+3           keydiff_string   string      value          0           6           6
+4           key_string_diff  string      value          0           6           6
+5           keylack_string   string      lack_target    0           6           0
+sqlite>
+
+sqlite> select * from field;
+id          field       conflict_type  key_id
+----------  ----------  -------------  ----------
+1           k1          lack_source    2
+2           k2          value          2
+3           k3          lack_target    2
+```
