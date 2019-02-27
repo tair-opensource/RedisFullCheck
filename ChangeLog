@@ -1,4 +1,7 @@
 2019-02-27 Alibaba Cloud.
+	* version: 1.0.2
+	* redis-full-check: add filter list.
+2019-02-27 Alibaba Cloud.
 	* version: 1.0.1
 	* redis-full-check: add comparemode=4 to using value length comparison
 	method for big key only in full-comparison(comparemode=2).
