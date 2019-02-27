@@ -6,6 +6,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var logger seelog.LoggerInterface
@@ -33,6 +34,7 @@ var opts struct {
 	ResultFile      string `long:"result" value-name:"FILE" description:"store all diff result, format is 'db\tdiff-type\tkey\tfield'"`
 	MetricFile      string `long:"metric" value-name:"FILE" description:"metrics file"`
 	BigKeyThreshold int64  `long:"bigkeythreshold" value-name:"COUNT" default:"16384"`
+	FilterList      string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
 	Version         bool   `short:"v" long:"version"`
 }
 
@@ -102,10 +104,22 @@ func main() {
 	if opts.CompareMode < FullValue || opts.CompareMode > FullValueWithOutline {
 		panic(logger.Errorf("invalid compare mode %d", opts.CompareMode))
 	}
-	if opts.BigKeyThreshold <= 0 {
+	if opts.BigKeyThreshold < 0 {
 		panic(logger.Errorf("invalid big key threshold: %d", opts.BigKeyThreshold))
+	} else if opts.BigKeyThreshold == 0 {
+		BigKeyThreshold = 16384
 	} else {
 		BigKeyThreshold = opts.BigKeyThreshold
+	}
+	var filterList []string
+	if len(opts.FilterList) != 0 {
+		filterList = strings.Split(opts.FilterList, "|")
+		for _, filter := range filterList {
+			if filter == "" {
+				panic(logger.Errorf("invalid input filter list: %v", filterList))
+			}
+		}
+		logger.Infof("filter list enabled: %v", filterList)
 	}
 
 	fullCheckParameter := FullCheckParameter{
@@ -128,6 +142,7 @@ func main() {
 		interval:     opts.Interval,
 		batchCount:   batchCount,
 		parallel:     parallel,
+		filterList:   filterList,
 	}
 	fullCheck := NewFullCheck(fullCheckParameter, CheckType(opts.CompareMode))
 	fullCheck.Start()
