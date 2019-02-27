@@ -41,9 +41,10 @@ Application Options:
   -a, --targetpassword=Password     Set target redis password
       --targetauthtype=AUTH-TYPE    useless for opensource redis, valid value:auth/adminauth (default: auth)
   -d, --db=Sqlite3-DB-FILE          sqlite3 db file for store result. If exist, it will be removed and a new file is created. (default: result.db)
-      --comparetimes=COUNT          Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison will be done on the previous results. (default: 3)
-  -m, --comparemode=                compare mode, 1: compare full value, 2: only compare value length, 3: only compare keys outline, 4: compare full value, but only compare value length when meets big key
-                                    (default: 2)
+      --comparetimes=COUNT          Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison
+                                    will be done on the previous results. (default: 3)
+  -m, --comparemode=                compare mode, 1: compare full value, 2: only compare value length, 3: only compare keys outline, 4: compare full value,
+                                    but only compare value length when meets big key (default: 2)
       --id=                         used in metric, run id (default: unknown)
       --jobid=                      used in metric, job id (default: unknown)
       --taskid=                     used in metric, task id (default: unknown)
@@ -55,11 +56,13 @@ Application Options:
       --result=FILE                 store all diff result, format is 'db	diff-type	key	field'
       --metric=FILE                 metrics file
       --bigkeythreshold=COUNT
+  -f, --filterlist=FILTER           if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the
+                                    string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc',
+                                    'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'
   -v, --version
 
 Help Options:
   -h, --help                        Show this help message
-
 ```
 
 # Usage

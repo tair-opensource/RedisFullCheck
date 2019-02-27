@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"full_check/common"
 )
 
 type CheckType int
@@ -648,6 +649,7 @@ type FullCheckParameter struct {
 	interval     int
 	batchCount   int
 	parallel     int
+	filterList   []string
 }
 
 type FullCheck struct {
@@ -919,7 +921,7 @@ func (p *FullCheck) Start() {
 			keys := make(chan []*Key, 1024)
 			conflictKey := make(chan *Key, 1024)
 			var wg, wg2 sync.WaitGroup
-			// start scan
+			// start scan, get all keys
 			if p.times == 1 {
 				wg.Add(1)
 				go func() {
@@ -1072,17 +1074,23 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 			if ok == false {
 				panic(logger.Criticalf("scan failed, result: %+v", reply))
 			}
-			keysInfo := make([]*Key, len(keylist))
-			for i, value := range keylist {
+			keysInfo := make([]*Key, 0, len(keylist))
+			for _, value := range keylist {
 				bytes, ok = value.([]byte)
 				if ok == false {
 					panic(logger.Criticalf("scan failed, result: %+v", reply))
 				}
-				keysInfo[i] = &Key{
+
+				// check filter list
+				if common.CheckFilter(&(p.filterList), bytes) == false {
+					continue
+				}
+
+				keysInfo = append(keysInfo, &Key{
 					key:          bytes,
 					tp:           EndKeyType,
 					conflictType: EndConflict,
-				}
+				})
 			}
 			p.IncrScanStat(len(keysInfo))
 			allKeys <- keysInfo
