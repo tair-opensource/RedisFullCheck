@@ -38,11 +38,18 @@ func (p RedisClient) String() string {
 	return p.redisHost.String()
 }
 
-func NewRedisClient(redisHost RedisHost, db int32) RedisClient {
-	return RedisClient{
+func NewRedisClient(redisHost RedisHost, db int32) (RedisClient, error) {
+	rc := RedisClient{
 		redisHost: redisHost,
 		db:        db,
 	}
+
+	// send ping command first
+	ret, err := rc.Do("ping")
+	if err == nil && ret.(string) != "PONG" {
+		return RedisClient{}, fmt.Errorf("ping return invaild[%v]", string(ret.([]byte)))
+	}
+	return rc, err
 }
 
 func (p *RedisClient) CheckHandleNetError(err error) bool {
