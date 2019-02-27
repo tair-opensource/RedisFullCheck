@@ -19,13 +19,14 @@ import (
 type CheckType int
 
 const (
-	FullValue          = 1
-	ValueLengthOutline = 2
-	KeyOutline         = 3
+	FullValue            = 1
+	ValueLengthOutline   = 2
+	KeyOutline           = 3
+	FullValueWithOutline = 4
 )
 
-const (
-	BigKeyThreshold = 16384
+var (
+	BigKeyThreshold int64 = 16384
 )
 
 func min(a, b int) int {
@@ -66,8 +67,8 @@ type IVerifier interface {
 }
 
 type VerifierBase struct {
-	stat  *Stat
-	param *FullCheckParameter
+	stat         *Stat
+	param        *FullCheckParameter
 }
 
 func (p *VerifierBase) IncrKeyStat(oneKeyInfo *Key) {
@@ -217,10 +218,14 @@ func (p *KeyOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey c
 
 type FullValueVerifier struct {
 	VerifierBase
+	ignoreBigKey bool // only compare value length for big key when this parameter is enabled.
 }
 
-func NewFullValueVerifier(stat *Stat, param *FullCheckParameter) *FullValueVerifier {
-	return &FullValueVerifier{VerifierBase{stat, param}}
+func NewFullValueVerifier(stat *Stat, param *FullCheckParameter, ignoreBigKey bool) *FullValueVerifier {
+	return &FullValueVerifier{
+		VerifierBase: VerifierBase{stat, param},
+		ignoreBigKey: ignoreBigKey,
+	}
 }
 
 func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
@@ -272,7 +277,21 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey ch
 			}
 
 			// 太大的 hash、list、set、zset 特殊单独处理
-			if keyInfo[i].tp != StringType && (keyInfo[i].sourceAttr.itemcount > BigKeyThreshold || keyInfo[i].targetAttr.itemcount > BigKeyThreshold) {
+			if keyInfo[i].tp != StringType &&
+					(keyInfo[i].sourceAttr.itemcount > BigKeyThreshold || keyInfo[i].targetAttr.itemcount > BigKeyThreshold) {
+				if p.ignoreBigKey {
+					// 如果启用忽略大key开关，则进入这个分支
+					if keyInfo[i].sourceAttr.itemcount != keyInfo[i].targetAttr.itemcount {
+						keyInfo[i].conflictType = ValueConflict
+						p.IncrKeyStat(keyInfo[i])
+						conflictKey <- keyInfo[i]
+					} else {
+						keyInfo[i].conflictType = NoneConflict
+						p.IncrKeyStat(keyInfo[i])
+					}
+					continue
+				}
+
 				switch keyInfo[i].tp {
 				case HashType:
 					fallthrough
@@ -301,8 +320,8 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey ch
 			/************ 之前比较过的key，进入后面的多轮比较 ***********/
 			// 这3种类型，重新比较
 			if keyInfo[i].conflictType == LackSourceConflict ||
-				keyInfo[i].conflictType == LackTargetConflict ||
-				keyInfo[i].conflictType == TypeConflict {
+					keyInfo[i].conflictType == LackTargetConflict ||
+					keyInfo[i].conflictType == TypeConflict {
 				keyInfo[i].tp = EndKeyType            // 重新取 type、len
 				keyInfo[i].conflictType = EndConflict // 使用 第一轮比较用的方式
 				retryNewVerifyKeyInfo = append(retryNewVerifyKeyInfo, keyInfo[i])
@@ -310,6 +329,21 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey ch
 			}
 
 			if keyInfo[i].conflictType == ValueConflict {
+				if keyInfo[i].tp != StringType &&
+						(keyInfo[i].sourceAttr.itemcount > BigKeyThreshold || keyInfo[i].targetAttr.itemcount > BigKeyThreshold) &&
+						p.ignoreBigKey {
+					// 如果启用忽略大key开关，则进入这个分支
+					if keyInfo[i].sourceAttr.itemcount != keyInfo[i].targetAttr.itemcount {
+						keyInfo[i].conflictType = ValueConflict
+						p.IncrKeyStat(keyInfo[i])
+						conflictKey <- keyInfo[i]
+					} else {
+						keyInfo[i].conflictType = NoneConflict
+						p.IncrKeyStat(keyInfo[i])
+					}
+					continue
+				}
+
 				switch keyInfo[i].tp {
 				// string 和 list 每次都要重新比较所有field value。
 				// list有lpush、lpop，会导致field value平移，所以需要重新比较所有field value
@@ -647,7 +681,9 @@ func NewFullCheck(f FullCheckParameter, checktype CheckType) *FullCheck {
 	case KeyOutline:
 		verifier = NewKeyOutlineVerifier(&fullcheck.stat, &fullcheck.FullCheckParameter)
 	case FullValue:
-		verifier = NewFullValueVerifier(&fullcheck.stat, &fullcheck.FullCheckParameter)
+		verifier = NewFullValueVerifier(&fullcheck.stat, &fullcheck.FullCheckParameter, false)
+	case FullValueWithOutline:
+		verifier = NewFullValueVerifier(&fullcheck.stat, &fullcheck.FullCheckParameter, true)
 	default:
 		panic(fmt.Sprintf("no such check type : %d", checktype))
 	}
@@ -807,7 +843,12 @@ func (p *FullCheck) Start() {
 	}
 
 	// 取keyspace
-	sourceClient := NewRedisClient(p.sourceHost, 0)
+	sourceClient, err := NewRedisClient(p.sourceHost, 0)
+	if err != nil {
+		panic(logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
+			p.sourceHost, 0, err))
+	}
+
 	keyspaceContent, err := sourceClient.Do("info", "Keyspace")
 	if err != nil {
 		panic(logger.Error(err))
@@ -990,7 +1031,11 @@ CREATE TABLE IF NOT EXISTS %s(
 }
 
 func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
-	sourceClient := NewRedisClient(p.sourceHost, p.currentDB)
+	sourceClient, err := NewRedisClient(p.sourceHost, p.currentDB)
+	if err != nil {
+		panic(logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
+			p.sourceHost, p.currentDB, err))
+	}
 	defer sourceClient.Close()
 
 	for idx := 0; idx < p.sourceNodeCount; idx++ {
@@ -1139,9 +1184,18 @@ func (p *FullCheck) ScanFromDB(allKeys chan<- []*Key) {
 }
 
 func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*Key, conflictKey chan<- *Key) {
-	sourceClient := NewRedisClient(p.sourceHost, p.currentDB)
+	sourceClient, err := NewRedisClient(p.sourceHost, p.currentDB)
+	if err != nil {
+		panic(logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
+			p.sourceHost, p.currentDB, err))
+	}
 	defer sourceClient.Close()
-	targetClient := NewRedisClient(p.targetHost, p.currentDB)
+
+	targetClient, err := NewRedisClient(p.targetHost, p.currentDB)
+	if err != nil {
+		panic(logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
+			p.targetHost, p.currentDB, err))
+	}
 	defer targetClient.Close()
 
 	standardTime := int64(p.batchCount * 3 / (opts.Qps / 1000 / opts.Parallel))
