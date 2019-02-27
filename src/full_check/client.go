@@ -47,7 +47,7 @@ func NewRedisClient(redisHost RedisHost, db int32) (RedisClient, error) {
 	// send ping command first
 	ret, err := rc.Do("ping")
 	if err == nil && ret.(string) != "PONG" {
-		return RedisClient{}, fmt.Errorf("ping return invaild[%v]", string(ret.([]byte)))
+		return rc, fmt.Errorf("ping return invaild[%v]", string(ret.([]byte)))
 	}
 	return rc, err
 }
