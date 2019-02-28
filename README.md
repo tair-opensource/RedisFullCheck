@@ -1,5 +1,5 @@
 Redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.<br>
-Thanks to the Douyu's WSD team for the support. 感谢斗鱼公司的web服务部提供的支持。<br>
+Thanks to the Douyu's WSD team for the support. <br>
 
 * [中文文档](https://yq.aliyun.com/articles/690463)
 
@@ -94,3 +94,12 @@ id          field       conflict_type  key_id
 2           k2          value          2
 3           k3          lack_target    2
 ```
+
+# Shake series tool
+---
+We also provide some tools for synchronization in Shake series.<br>
+
+* [mongo-shake](https://github.com/aliyun/mongo-shake): mongodb data synchronization tool. 
+* [redis-shake](https://github.com/aliyun/redis-shake): redis data synchronization tool. 
+* [redis-full-check](https://github.com/aliyun/redis-full-check): redis data synchronization verification tool. 
+
