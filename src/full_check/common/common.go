@@ -10,25 +10,21 @@ import "unsafe"
  */
 func CheckFilter(filterList *[]string, keyBytes []byte) bool {
 	if len(*filterList) != 0 {
-		key := *(*string)(unsafe.Pointer(&keyBytes))
-		for _, filterElement := range *filterList {
-			length := len(filterElement)
-			if filterElement[length - 1] != '*' {
-				// exact match
-				if length == len(key) && filterElement == key {
-					return true
-				}
-			} else {
-				// prefix match
-				if length - 1 <= len(key) && isLeadingSame(key, filterElement, length - 1) {
-					return true
-				}
-			}
-		}
+		//init on startup
+		trie := initTrie(filterList)
 
-		return false
+		key := *(*string)(unsafe.Pointer(&keyBytes))
+		return trie.Search([]rune(key))
 	}
 	return true // all pass when filter list is empty
+}
+
+func initTrie(filterList *[]string) *Trie {
+	trie := NewTrie()
+	for _, filterElement := range *filterList {
+		trie.Insert([]rune(filterElement))
+	}
+	return trie
 }
 
 func isLeadingSame(a, b string, length int) bool {
