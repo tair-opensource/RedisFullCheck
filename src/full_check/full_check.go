@@ -1082,7 +1082,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 				}
 
 				// check filter list
-				if common.CheckFilter(&(p.filterList), bytes) == false {
+				if common.CheckFilter(p.filterList, bytes) == false {
 					continue
 				}
 
