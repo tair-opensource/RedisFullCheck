@@ -8,10 +8,10 @@ import "unsafe"
  * Actually, it's better to use trie tree instead of for-loop brute way. The reason I choose this is because
  * input filterList is not long in general, and I'm a lazy guy~.
  */
-func CheckFilter(filterList *[]string, keyBytes []byte) bool {
-	if len(*filterList) != 0 {
+func CheckFilter(filterList []string, keyBytes []byte) bool {
+	if len(filterList) != 0 {
 		key := *(*string)(unsafe.Pointer(&keyBytes))
-		for _, filterElement := range *filterList {
+		for _, filterElement := range filterList {
 			length := len(filterElement)
 			if filterElement[length - 1] != '*' {
 				// exact match
