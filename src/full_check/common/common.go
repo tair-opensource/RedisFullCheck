@@ -9,6 +9,7 @@ package common
 func CheckFilter(filterTree *Trie, keyBytes []byte) bool {
 	if !filterTree.root.isEnd {
 		return !filterTree.Search(keyBytes)
+
 	}
 	return true // all pass when filter list is empty
 }
