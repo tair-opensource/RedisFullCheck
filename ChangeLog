@@ -1,3 +1,7 @@
+2019-03-01 Alibaba Cloud.
+	* version: 1.0.3
+	* redis-full-check: improve filter list performance.
+	* thanks: glowwormX
 2019-02-27 Alibaba Cloud.
 	* version: 1.0.2
 	* redis-full-check: add filter list.
