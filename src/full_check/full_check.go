@@ -1085,9 +1085,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 				if common.CheckFilter(p.filterTree, bytes) == false {
 					continue
 				}
-
-				fmt.Println(string(bytes))
-
+				
 				keysInfo = append(keysInfo, &Key{
 					key:          bytes,
 					tp:           EndKeyType,
