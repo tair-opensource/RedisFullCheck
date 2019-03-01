@@ -649,7 +649,7 @@ type FullCheckParameter struct {
 	interval     int
 	batchCount   int
 	parallel     int
-	filterList   []string
+	filterTree   *common.Trie
 }
 
 type FullCheck struct {
@@ -1082,7 +1082,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 				}
 
 				// check filter list
-				if common.CheckFilter(&(p.filterList), bytes) == false {
+				if common.CheckFilter(p.filterTree, bytes) == false {
 					continue
 				}
 

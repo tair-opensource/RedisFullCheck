@@ -1,12 +1,12 @@
 package common
 
 type TrieNode struct {
-	children map[rune]*TrieNode
+	children map[byte]*TrieNode
 	isEnd    bool
 }
 
 func newTrieNode() *TrieNode {
-	return &TrieNode{children: make(map[rune]*TrieNode), isEnd: false}
+	return &TrieNode{children: make(map[byte]*TrieNode), isEnd: false}
 }
 
 type Trie struct {
@@ -14,11 +14,12 @@ type Trie struct {
 }
 
 func NewTrie() *Trie {
-	return &Trie{root: newTrieNode()}
+	return &Trie{root: &TrieNode{children: make(map[byte]*TrieNode), isEnd: true}}
 }
 
-func (trie *Trie) Insert(word []rune) {
+func (trie *Trie) Insert(word []byte) {
 	node := trie.root
+	node.isEnd = false
 	for i := 0; i < len(word); i++ {
 		_, ok := node.children[word[i]]
 		if !ok {
@@ -29,11 +30,11 @@ func (trie *Trie) Insert(word []rune) {
 	node.isEnd = true
 }
 
-func (trie *Trie) Search(word []rune) bool {
+func (trie *Trie) Search(word []byte) bool {
 	node := trie.root
 	for i := 0; i < len(word); i++ {
 		if _, ok := node.children['*']; ok {
-			return true;
+			return true
 		}
 		if _, ok := node.children[word[i]]; !ok {
 			return false
