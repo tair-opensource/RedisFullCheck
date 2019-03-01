@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"full_check/common"
 	"github.com/cihub/seelog"
 	"github.com/jessevdk/go-flags"
 	"os"
@@ -111,13 +112,14 @@ func main() {
 	} else {
 		BigKeyThreshold = opts.BigKeyThreshold
 	}
-	var filterList []string
+	filterTree := common.NewTrie()
 	if len(opts.FilterList) != 0 {
-		filterList = strings.Split(opts.FilterList, "|")
+		filterList := strings.Split(opts.FilterList, "|")
 		for _, filter := range filterList {
 			if filter == "" {
 				panic(logger.Errorf("invalid input filter list: %v", filterList))
 			}
+			filterTree.Insert([]byte(filter))
 		}
 		logger.Infof("filter list enabled: %v", filterList)
 	}
@@ -142,7 +144,7 @@ func main() {
 		interval:     opts.Interval,
 		batchCount:   batchCount,
 		parallel:     parallel,
-		filterList:   filterList,
+		filterTree:   filterTree,
 	}
 	fullCheck := NewFullCheck(fullCheckParameter, CheckType(opts.CompareMode))
 	fullCheck.Start()
