@@ -1086,6 +1086,8 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 					continue
 				}
 
+				fmt.Println(string(bytes))
+
 				keysInfo = append(keysInfo, &Key{
 					key:          bytes,
 					tp:           EndKeyType,

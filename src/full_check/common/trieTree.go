@@ -1,12 +1,17 @@
 package common
 
+const (
+	Star = byte('*')
+)
+
 type TrieNode struct {
 	children map[byte]*TrieNode
 	isEnd    bool
+	isStar   bool // is ending by *
 }
 
 func newTrieNode() *TrieNode {
-	return &TrieNode{children: make(map[byte]*TrieNode), isEnd: false}
+	return &TrieNode{children: make(map[byte]*TrieNode), isEnd: false, isStar: false}
 }
 
 type Trie struct {
@@ -14,32 +19,36 @@ type Trie struct {
 }
 
 func NewTrie() *Trie {
-	return &Trie{root: &TrieNode{children: make(map[byte]*TrieNode), isEnd: true}}
+	return &Trie{root: newTrieNode()}
 }
 
 func (trie *Trie) Insert(word []byte) {
 	node := trie.root
-	node.isEnd = false
-	for i := 0; i < len(word); i++ {
-		_, ok := node.children[word[i]]
-		if !ok {
-			node.children[word[i]] = newTrieNode()
+	for _, char := range word {
+		if char == Star {
+			node.isStar = true
+			break
 		}
-		node = node.children[word[i]]
+
+		_, ok := node.children[char]
+		if !ok {
+			node.children[char] = newTrieNode()
+		}
+		node = node.children[char]
 	}
 	node.isEnd = true
 }
 
 func (trie *Trie) Search(word []byte) bool {
 	node := trie.root
-	for i := 0; i < len(word); i++ {
-		if _, ok := node.children['*']; ok {
+	for _, char := range word {
+		if node.isStar {
 			return true
 		}
-		if _, ok := node.children[word[i]]; !ok {
+		if _, ok := node.children[char]; !ok {
 			return false
 		}
-		node = node.children[word[i]]
+		node = node.children[char]
 	}
-	return node.isEnd
+	return node.isEnd || node.isStar
 }

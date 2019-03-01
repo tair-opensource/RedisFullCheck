@@ -8,17 +8,7 @@ package common
  */
 func CheckFilter(filterTree *Trie, keyBytes []byte) bool {
 	if !filterTree.root.isEnd {
-		return !filterTree.Search(keyBytes)
-
+		return filterTree.Search(keyBytes)
 	}
 	return true // all pass when filter list is empty
-}
-
-func isLeadingSame(a, b string, length int) bool {
-	for i := 0; i < length; i++ {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
