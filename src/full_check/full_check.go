@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 	"full_check/common"
+	"math"
 )
 
 type CheckType int
@@ -649,7 +650,7 @@ type FullCheckParameter struct {
 	interval     int
 	batchCount   int
 	parallel     int
-	filterList   []string
+	filterTree   *common.Trie
 }
 
 type FullCheck struct {
@@ -1082,10 +1083,10 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 				}
 
 				// check filter list
-				if common.CheckFilter(p.filterList, bytes) == false {
+				if common.CheckFilter(p.filterTree, bytes) == false {
 					continue
 				}
-
+				
 				keysInfo = append(keysInfo, &Key{
 					key:          bytes,
 					tp:           EndKeyType,
@@ -1206,7 +1207,8 @@ func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*Key, conflictKey chan<- *
 	}
 	defer targetClient.Close()
 
-	standardTime := int64(p.batchCount * 3 / (opts.Qps / 1000 / opts.Parallel))
+	divisor := int(math.Max(1, float64(opts.Qps / 1000 / opts.Parallel)))
+	standardTime := int64(p.batchCount * 3 / divisor)
 	for keyInfo := range allKeys {
 		begin := time.Now().UnixNano() / 1000 / 1000
 
