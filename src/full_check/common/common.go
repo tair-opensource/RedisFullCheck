@@ -7,8 +7,8 @@ package common
  * input filterList is not long in general, and I'm a lazy guy~.
  */
 func CheckFilter(filterTree *Trie, keyBytes []byte) bool {
-	if !filterTree.root.isEnd {
-		return filterTree.Search(keyBytes)
+	if filterTree == nil { // all pass when filter list is empty
+		return true
 	}
-	return true // all pass when filter list is empty
+	return filterTree.Search(keyBytes)
 }

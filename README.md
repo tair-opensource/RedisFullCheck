@@ -8,7 +8,10 @@ Thanks to the Douyu's WSD team for the support. <br>
 Redis-full-check is developed and maintained by NoSQL Team in Alibaba-Cloud Database department.<br>
 Redis-full-check performs full data verification by comparing the data of the source database and the destination database. The entire check process consists of multiple comparisons, in every comparison, redis-full-check fetches data from two dabatases and then compared, the inconsistent data is put into sqlite3 db for the next comparison. By this iteratively comparing method, the difference continues to converge. The following figure shows the dataflow. In every comparison which is the yellow box, redis-full-check fetches all keys firstly. After that, it runs comparison and stores the difference result(key and field) into the sqlite3 db which is the position that keys and fields can be fetched in next round instead of the source database.<br>
 ![dataflow.png](https://github.com/aliyun/redis-full-check/blob/master/resources/dataflow.png)<br>
-Redis-full-check only checks whether the target database is a subset of the source database. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link.<br>
+Redis-full-check fetches keys from source and then checks these keys exist on the target. So if one key exists on the target but lack on the source, redis-full-check can't find it. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link: <br>
+
+* source->redis-full-check->target
+* target->redis-full-check->source
 
 # Code branch rules
 Version rules: a.b.c.<br>

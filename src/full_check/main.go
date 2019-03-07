@@ -112,8 +112,9 @@ func main() {
 	} else {
 		BigKeyThreshold = opts.BigKeyThreshold
 	}
-	filterTree := common.NewTrie()
+	var filterTree *common.Trie
 	if len(opts.FilterList) != 0 {
+		filterTree = common.NewTrie()
 		filterList := strings.Split(opts.FilterList, "|")
 		for _, filter := range filterList {
 			if filter == "" {
