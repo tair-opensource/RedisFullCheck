@@ -11,6 +11,7 @@ logs
 *.yml
 tags
 result.db.*
+*.tar.gz
 
 dump.data
 runtime.trace

@@ -14,6 +14,7 @@ const (
 	ListTypeIndex
 	SetTypeIndex
 	ZsetTypeIndex
+	StreamTypeIndex
 	NoneTypeIndex
 	EndKeyTypeIndex
 )
@@ -52,6 +53,12 @@ var ZsetType = &KeyType{
 	fetchLenCommand: "zcard",
 }
 
+var StreamType = &KeyType{
+	name:            "stream",
+	index:           StreamTypeIndex,
+	fetchLenCommand: "xlen",
+}
+
 var NoneType = &KeyType{
 	name:            "none",
 	index:           NoneTypeIndex,
@@ -59,9 +66,9 @@ var NoneType = &KeyType{
 }
 
 var EndKeyType = &KeyType{
-	name:            "unkown",
+	name:            "unknown",
 	index:           EndKeyTypeIndex,
-	fetchLenCommand: "unkown",
+	fetchLenCommand: "unknown",
 }
 
 func NewKeyType(a string) *KeyType {
@@ -76,6 +83,8 @@ func NewKeyType(a string) *KeyType {
 		return SetType
 	case "zset":
 		return ZsetType
+	case "stream":
+		return StreamType
 	case "none":
 		return NoneType
 	default:
@@ -95,6 +104,8 @@ func (p KeyTypeIndex) String() string {
 		return "set"
 	case ZsetTypeIndex:
 		return "zset"
+	case StreamTypeIndex:
+		return "stream"
 	case NoneTypeIndex:
 		return "none"
 	default:
@@ -146,7 +157,7 @@ func (p ConflictType) String() string {
 	case NoneConflict:
 		return "equal"
 	default:
-		return "unkown_conflict"
+		return "unknown_conflict"
 	}
 }
 
