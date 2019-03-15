@@ -129,7 +129,7 @@ begin:
 		}
 		break
 	} // end for {}
-	return result, nil
+	return result, err
 }
 
 func (p *RedisClient) Close() {
