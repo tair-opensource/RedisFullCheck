@@ -1,5 +1,14 @@
 package common
 
+const (
+	MaxRetryCount     = 20 // client attribute
+	StatRollFrequency = 2  // client attribute
+)
+
+var (
+	BigKeyThreshold int64 = 16384
+)
+
 /*
  * @Vinllen Chen. check filter hit the key.
  * return: true/false. true means pass.

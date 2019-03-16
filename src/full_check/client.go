@@ -9,11 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
-
-const (
-	MaxRetryCount     = 20
-	StatRollFrequency = 2
+	"full_check/common"
 )
 
 type RedisHost struct {
@@ -105,7 +101,7 @@ func (p *RedisClient) Do(commandName string, args ...interface{}) (interface{}, 
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -139,13 +135,13 @@ func (p *RedisClient) Close() {
 	}
 }
 
-func (p *RedisClient) PipeTypeCommand(keyInfo []*Key) ([]string, error) {
+func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 	var err error
 	result := make([]string, len(keyInfo))
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -161,7 +157,7 @@ begin:
 		}
 
 		for _, key := range keyInfo {
-			err = p.conn.Send("type", key.key)
+			err = p.conn.Send("type", key.Key)
 			if err != nil {
 				if p.CheckHandleNetError(err) {
 					break begin
@@ -192,13 +188,13 @@ begin:
 	return result, nil
 }
 
-func (p *RedisClient) PipeExistsCommand(keyInfo []*Key) ([]int64, error) {
+func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) {
 	var err error
 	result := make([]int64, len(keyInfo))
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -214,7 +210,7 @@ begin:
 		}
 
 		for _, key := range keyInfo {
-			err = p.conn.Send("exists", key.key)
+			err = p.conn.Send("exists", key.Key)
 			if err != nil {
 				if p.CheckHandleNetError(err) {
 					break begin
@@ -245,13 +241,13 @@ begin:
 	return result, nil
 }
 
-func (p *RedisClient) PipeLenCommand(keys []*Key) ([]int64, error) {
+func (p *RedisClient) PipeLenCommand(keys []*common.Key) ([]int64, error) {
 	var err error
 	result := make([]int64, len(keys))
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -267,7 +263,7 @@ begin:
 		}
 
 		for _, key := range keys {
-			err = p.conn.Send(key.tp.fetchLenCommand, key.key)
+			err = p.conn.Send(key.Tp.FetchLenCommand, key.Key)
 			if err != nil {
 				if p.CheckHandleNetError(err) {
 					break begin
@@ -301,13 +297,13 @@ begin:
 	return result, nil
 }
 
-func (p *RedisClient) PipeValueCommand(fetchValueKeyInfo []*Key) ([]interface{}, error) {
+func (p *RedisClient) PipeValueCommand(fetchValueKeyInfo []*common.Key) ([]interface{}, error) {
 	var err error
 	result := make([]interface{}, len(fetchValueKeyInfo))
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -323,19 +319,19 @@ begin:
 		}
 
 		for _, item := range fetchValueKeyInfo {
-			switch item.tp {
-			case StringType:
-				err = p.conn.Send("get", item.key)
-			case HashType:
-				err = p.conn.Send("hgetall", item.key)
-			case ListType:
-				err = p.conn.Send("lrange", item.key, 0, -1)
-			case SetType:
-				err = p.conn.Send("smembers", item.key)
-			case ZsetType:
-				err = p.conn.Send("zrange", item.key, 0, -1, "WITHSCORES")
+			switch item.Tp {
+			case common.StringKeyType:
+				err = p.conn.Send("get", item.Key)
+			case common.HashKeyType:
+				err = p.conn.Send("hgetall", item.Key)
+			case common.ListKeyType:
+				err = p.conn.Send("lrange", item.Key, 0, -1)
+			case common.SetKeyType:
+				err = p.conn.Send("smembers", item.Key)
+			case common.ZsetKeyType:
+				err = p.conn.Send("zrange", item.Key, 0, -1, "WITHSCORES")
 			default:
-				err = p.conn.Send("get", item.key)
+				err = p.conn.Send("get", item.Key)
 			}
 
 			if err != nil {
@@ -374,7 +370,7 @@ func (p *RedisClient) PipeSismemberCommand(key []byte, field [][]byte) ([]interf
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -427,7 +423,7 @@ func (p *RedisClient) PipeZscoreCommand(key []byte, field [][]byte) ([]interface
 	tryCount := 0
 begin:
 	for {
-		if tryCount > MaxRetryCount {
+		if tryCount > common.MaxRetryCount {
 			return nil, err
 		}
 		tryCount++
@@ -474,34 +470,36 @@ begin:
 	return result, nil
 }
 
-func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *Key, onceScanCount int) (map[string][]byte, error) {
+func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Key, onceScanCount int) (map[string][]byte, error) {
 	var scanCmd string
-	switch oneKeyInfo.tp {
-	case HashType:
+	switch oneKeyInfo.Tp {
+	case common.HashKeyType:
 		scanCmd = "hscan"
-	case SetType:
+	case common.SetKeyType:
 		scanCmd = "sscan"
-	case ZsetType:
+	case common.ZsetKeyType:
 		scanCmd = "zscan"
 	default:
-		return nil, fmt.Errorf("key type %s is not hash/set/zset", oneKeyInfo.tp)
+		return nil, fmt.Errorf("key type %s is not hash/set/zset", oneKeyInfo.Tp)
 	}
 	cursor := 0
 	value := make(map[string][]byte)
 	for {
-		reply, err := p.Do(scanCmd, oneKeyInfo.key, cursor, "count", onceScanCount)
+		reply, err := p.Do(scanCmd, oneKeyInfo.Key, cursor, "count", onceScanCount)
 		if err != nil {
 			return nil, err
 		}
 
 		replyList, ok := reply.([]interface{})
 		if ok == false || len(replyList) != 2 {
-			return nil, fmt.Errorf("%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.key), cursor, onceScanCount, reply)
+			return nil, fmt.Errorf("%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.Key),
+				cursor, onceScanCount, reply)
 		}
 
 		cursorBytes, ok := replyList[0].([]byte)
 		if ok == false {
-			return nil, fmt.Errorf("%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.key), cursor, onceScanCount, reply)
+			return nil, fmt.Errorf("%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.Key),
+				cursor, onceScanCount, reply)
 		}
 
 		cursor, err = strconv.Atoi(string(cursorBytes))
@@ -511,21 +509,21 @@ func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *Key, once
 
 		keylist, ok := replyList[1].([]interface{})
 		if ok == false {
-			panic(logger.Criticalf("%s %s failed, result: %+v", scanCmd, string(oneKeyInfo.key), reply))
+			panic(logger.Criticalf("%s %s failed, result: %+v", scanCmd, string(oneKeyInfo.Key), reply))
 		}
-		switch oneKeyInfo.tp {
-		case HashType:
+		switch oneKeyInfo.Tp {
+		case common.HashKeyType:
 			fallthrough
-		case ZsetType:
+		case common.ZsetKeyType:
 			for i := 0; i < len(keylist); i += 2 {
 				value[string(keylist[i].([]byte))] = keylist[i+1].([]byte)
 			}
-		case SetType:
+		case common.SetKeyType:
 			for i := 0; i < len(keylist); i++ {
 				value[string(keylist[i].([]byte))] = nil
 			}
 		default:
-			return nil, fmt.Errorf("key type %s is not hash/set/zset", oneKeyInfo.tp)
+			return nil, fmt.Errorf("key type %s is not hash/set/zset", oneKeyInfo.Tp)
 		}
 
 		if cursor == 0 {

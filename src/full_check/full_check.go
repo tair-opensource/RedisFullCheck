@@ -16,6 +16,7 @@ import (
 	"time"
 	"full_check/common"
 	"math"
+	"full_check/metric"
 )
 
 type CheckType int
@@ -27,68 +28,32 @@ const (
 	FullValueWithOutline = 4
 )
 
-var (
-	BigKeyThreshold int64 = 16384
-)
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-type Stat struct {
-	scan          AtomicSpeedCounter
-	conflictField [EndKeyTypeIndex][EndConflict]AtomicSpeedCounter
-	conflictKey   [EndKeyTypeIndex][EndConflict]AtomicSpeedCounter
-}
-
-func (p *Stat) Rotate() {
-	p.scan.Rotate()
-	for keyType := KeyTypeIndex(0); keyType < EndKeyTypeIndex; keyType++ {
-		for conType := ConflictType(0); conType < EndConflict; conType++ {
-			p.conflictField[keyType][conType].Rotate()
-			p.conflictKey[keyType][conType].Rotate()
-		}
-	}
-}
-
-func (p *Stat) Reset() {
-	p.scan.Reset()
-	for keyType := KeyTypeIndex(0); keyType < EndKeyTypeIndex; keyType++ {
-		for conType := ConflictType(0); conType < EndConflict; conType++ {
-			p.conflictField[keyType][conType].Reset()
-			p.conflictKey[keyType][conType].Reset()
-		}
-	}
-}
-
 type IVerifier interface {
-	VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient)
+	VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient,
+		targetClient *RedisClient)
 }
 
 type VerifierBase struct {
-	stat         *Stat
+	stat         *metric.Stat
 	param        *FullCheckParameter
 }
 
-func (p *VerifierBase) IncrKeyStat(oneKeyInfo *Key) {
-	p.stat.conflictKey[oneKeyInfo.tp.index][oneKeyInfo.conflictType].Inc(1)
+func (p *VerifierBase) IncrKeyStat(oneKeyInfo *common.Key) {
+	p.stat.ConflictKey[oneKeyInfo.Tp.Index][oneKeyInfo.ConflictType].Inc(1)
 }
 
-func (p *VerifierBase) IncrFieldStat(oneKeyInfo *Key, conType ConflictType) {
-	p.stat.conflictField[oneKeyInfo.tp.index][conType].Inc(1)
+func (p *VerifierBase) IncrFieldStat(oneKeyInfo *common.Key, conType common.ConflictType) {
+	p.stat.ConflictField[oneKeyInfo.Tp.Index][conType].Inc(1)
 }
 
-func (p *VerifierBase) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *VerifierBase) FetchTypeAndLen(keyInfo []*common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	// fetch type
 	sourceKeyTypeStr, err := sourceClient.PipeTypeCommand(keyInfo)
 	if err != nil {
 		panic(logger.Critical(err))
 	}
 	for i, t := range sourceKeyTypeStr {
-		keyInfo[i].tp = NewKeyType(t)
+		keyInfo[i].Tp = common.NewKeyType(t)
 	}
 
 	var wg sync.WaitGroup
@@ -100,7 +65,7 @@ func (p *VerifierBase) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient
 			panic(logger.Critical(err))
 		}
 		for i, keylen := range sourceKeyLen {
-			keyInfo[i].sourceAttr.itemcount = keylen
+			keyInfo[i].SourceAttr.ItemCount = keylen
 		}
 		wg.Done()
 	}()
@@ -112,7 +77,7 @@ func (p *VerifierBase) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient
 			panic(logger.Critical(err))
 		}
 		for i, keylen := range targetKeyLen {
-			keyInfo[i].targetAttr.itemcount = keylen
+			keyInfo[i].TargetAttr.ItemCount = keylen
 		}
 		wg.Done()
 	}()
@@ -124,41 +89,41 @@ type ValueOutlineVerifier struct {
 	VerifierBase
 }
 
-func NewValueOutlineVerifier(stat *Stat, param *FullCheckParameter) *ValueOutlineVerifier {
+func NewValueOutlineVerifier(stat *metric.Stat, param *FullCheckParameter) *ValueOutlineVerifier {
 	return &ValueOutlineVerifier{VerifierBase{stat, param}}
 }
 
-func (p *ValueOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *ValueOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	p.FetchTypeAndLen(keyInfo, sourceClient, targetClient)
 
 	// compare, filter
 	for i := 0; i < len(keyInfo); i++ {
 		// 取type时，source redis上key已经被删除，认为是没有不一致
-		if keyInfo[i].tp == NoneType {
-			keyInfo[i].conflictType = NoneConflict
+		if keyInfo[i].Tp == common.NoneKeyType {
+			keyInfo[i].ConflictType = common.NoneConflict
 			p.IncrKeyStat(keyInfo[i])
 			continue
 		}
 
 		// key lack in target redis
-		if keyInfo[i].targetAttr.itemcount == 0 {
-			keyInfo[i].conflictType = LackTargetConflict
+		if keyInfo[i].TargetAttr.ItemCount == 0 {
+			keyInfo[i].ConflictType = common.LackTargetConflict
 			p.IncrKeyStat(keyInfo[i])
 			conflictKey <- keyInfo[i]
 			continue
 		}
 
-		// type mismatch, itemcount == -1，表明key在target redis上的type与source不同
-		if keyInfo[i].targetAttr.itemcount == -1 {
-			keyInfo[i].conflictType = TypeConflict
+		// type mismatch, ItemCount == -1，表明key在target redis上的type与source不同
+		if keyInfo[i].TargetAttr.ItemCount == -1 {
+			keyInfo[i].ConflictType = common.TypeConflict
 			p.IncrKeyStat(keyInfo[i])
 			conflictKey <- keyInfo[i]
 			continue
 		}
 
 		// string,  strlen mismatch, 先过滤一遍
-		if keyInfo[i].sourceAttr.itemcount != keyInfo[i].targetAttr.itemcount {
-			keyInfo[i].conflictType = ValueConflict
+		if keyInfo[i].SourceAttr.ItemCount != keyInfo[i].TargetAttr.ItemCount {
+			keyInfo[i].ConflictType = common.ValueConflict
 			p.IncrKeyStat(keyInfo[i])
 			conflictKey <- keyInfo[i]
 			continue
@@ -170,11 +135,11 @@ type KeyOutlineVerifier struct {
 	VerifierBase
 }
 
-func NewKeyOutlineVerifier(stat *Stat, param *FullCheckParameter) *KeyOutlineVerifier {
+func NewKeyOutlineVerifier(stat *metric.Stat, param *FullCheckParameter) *KeyOutlineVerifier {
 	return &KeyOutlineVerifier{VerifierBase{stat, param}}
 }
 
-func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	// fetch type
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -184,7 +149,7 @@ func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*Key, sourceClient *RedisClient
 			panic(logger.Critical(err))
 		}
 		for i, t := range sourceKeyTypeStr {
-			keyInfo[i].tp = NewKeyType(t)
+			keyInfo[i].Tp = common.NewKeyType(t)
 		}
 		wg.Done()
 	}()
@@ -196,7 +161,7 @@ func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*Key, sourceClient *RedisClient
 			panic(logger.Critical(err))
 		}
 		for i, t := range targetKeyTypeStr {
-			keyInfo[i].targetAttr.itemcount = t
+			keyInfo[i].TargetAttr.ItemCount = t
 		}
 		wg.Done()
 	}()
@@ -204,14 +169,14 @@ func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*Key, sourceClient *RedisClient
 	wg.Wait()
 }
 
-func (p *KeyOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *KeyOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	p.FetchKeys(keyInfo, sourceClient, targetClient)
 
 	// compare, filter
 	for i := 0; i < len(keyInfo); i++ {
 		// key lack in target redis
-		if keyInfo[i].targetAttr.itemcount == 0 {
-			keyInfo[i].conflictType = LackTargetConflict
+		if keyInfo[i].TargetAttr.ItemCount == 0 {
+			keyInfo[i].ConflictType = common.LackTargetConflict
 			p.IncrKeyStat(keyInfo[i])
 			conflictKey <- keyInfo[i]
 		}
@@ -223,83 +188,83 @@ type FullValueVerifier struct {
 	ignoreBigKey bool // only compare value length for big key when this parameter is enabled.
 }
 
-func NewFullValueVerifier(stat *Stat, param *FullCheckParameter, ignoreBigKey bool) *FullValueVerifier {
+func NewFullValueVerifier(stat *metric.Stat, param *FullCheckParameter, ignoreBigKey bool) *FullValueVerifier {
 	return &FullValueVerifier{
 		VerifierBase: VerifierBase{stat, param},
 		ignoreBigKey: ignoreBigKey,
 	}
 }
 
-func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	// 对于没有类型的Key, 取类型和长度
-	noTypeKeyInfo := make([]*Key, 0, len(keyInfo))
+	noTypeKeyInfo := make([]*common.Key, 0, len(keyInfo))
 	for i := 0; i < len(keyInfo); i++ {
-		if keyInfo[i].tp == EndKeyType {
+		if keyInfo[i].Tp == common.EndKeyType {
 			noTypeKeyInfo = append(noTypeKeyInfo, keyInfo[i])
 		}
 	}
 	p.FetchTypeAndLen(noTypeKeyInfo, sourceClient, targetClient)
 
 	// compare, filter
-	fullCheckFetchAllKeyInfo := make([]*Key, 0, len(keyInfo))
-	retryNewVerifyKeyInfo := make([]*Key, 0, len(keyInfo))
+	fullCheckFetchAllKeyInfo := make([]*common.Key, 0, len(keyInfo))
+	retryNewVerifyKeyInfo := make([]*common.Key, 0, len(keyInfo))
 	for i := 0; i < len(keyInfo); i++ {
 		/************ 所有第一次比较的key，之前未比较的 key ***********/
-		if keyInfo[i].conflictType == EndConflict { // 第二轮及以后比较的key，conflictType 肯定不是EndConflict
+		if keyInfo[i].ConflictType == common.EndConflict { // 第二轮及以后比较的key，conflictType 肯定不是EndConflict
 			// 取type时，source redis上key已经被删除，认为是没有不一致
-			if keyInfo[i].tp == NoneType {
-				keyInfo[i].conflictType = NoneConflict
+			if keyInfo[i].Tp == common.NoneKeyType {
+				keyInfo[i].ConflictType = common.NoneConflict
 				p.IncrKeyStat(keyInfo[i])
 				continue
 			}
 
 			// key lack in target redis
-			if keyInfo[i].targetAttr.itemcount == 0 &&
-					keyInfo[i].targetAttr.itemcount != keyInfo[i].sourceAttr.itemcount  {
-				keyInfo[i].conflictType = LackTargetConflict
+			if keyInfo[i].TargetAttr.ItemCount == 0 &&
+					keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount  {
+				keyInfo[i].ConflictType = common.LackTargetConflict
 				p.IncrKeyStat(keyInfo[i])
 				conflictKey <- keyInfo[i]
 				continue
 			}
 
-			// type mismatch, itemcount == -1，表明key在target redis上的type与source不同
-			if keyInfo[i].targetAttr.itemcount == -1 {
-				keyInfo[i].conflictType = TypeConflict
+			// type mismatch, ItemCount == -1，表明key在target redis上的type与source不同
+			if keyInfo[i].TargetAttr.ItemCount == -1 {
+				keyInfo[i].ConflictType = common.TypeConflict
 				p.IncrKeyStat(keyInfo[i])
 				conflictKey <- keyInfo[i]
 				continue
 			}
 
 			// string,  strlen mismatch, 先过滤一遍
-			if keyInfo[i].tp == StringType && keyInfo[i].sourceAttr.itemcount != keyInfo[i].targetAttr.itemcount {
-				keyInfo[i].conflictType = ValueConflict
+			if keyInfo[i].Tp == common.StringKeyType && keyInfo[i].SourceAttr.ItemCount != keyInfo[i].TargetAttr.ItemCount {
+				keyInfo[i].ConflictType = common.ValueConflict
 				p.IncrKeyStat(keyInfo[i])
 				conflictKey <- keyInfo[i]
 				continue
 			}
 
 			// 太大的 hash、list、set、zset 特殊单独处理
-			if keyInfo[i].tp != StringType &&
-					(keyInfo[i].sourceAttr.itemcount > BigKeyThreshold || keyInfo[i].targetAttr.itemcount > BigKeyThreshold) {
+			if keyInfo[i].Tp != common.StringKeyType &&
+					(keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold || keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold) {
 				if p.ignoreBigKey {
 					// 如果启用忽略大key开关，则进入这个分支
-					if keyInfo[i].sourceAttr.itemcount != keyInfo[i].targetAttr.itemcount {
-						keyInfo[i].conflictType = ValueConflict
+					if keyInfo[i].SourceAttr.ItemCount != keyInfo[i].TargetAttr.ItemCount {
+						keyInfo[i].ConflictType = common.ValueConflict
 						p.IncrKeyStat(keyInfo[i])
 						conflictKey <- keyInfo[i]
 					} else {
-						keyInfo[i].conflictType = NoneConflict
+						keyInfo[i].ConflictType = common.NoneConflict
 						p.IncrKeyStat(keyInfo[i])
 					}
 					continue
 				}
 
-				switch keyInfo[i].tp {
-				case HashType:
+				switch keyInfo[i].Tp {
+				case common.HashKeyType:
 					fallthrough
-				case SetType:
+				case common.SetKeyType:
 					fallthrough
-				case ZsetType:
+				case common.ZsetKeyType:
 					sourceValue, err := sourceClient.FetchValueUseScan_Hash_Set_SortedSet(keyInfo[i], p.param.batchCount)
 					if err != nil {
 						panic(logger.Error(err))
@@ -309,7 +274,7 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey ch
 						panic(logger.Error(err))
 					}
 					p.Compare_Hash_Set_SortedSet(keyInfo[i], conflictKey, sourceValue, targetValue)
-				case ListType:
+				case common.ListKeyType:
 					p.CheckFullBigValue_List(keyInfo[i], conflictKey, sourceClient, targetClient)
 				}
 				continue
@@ -321,48 +286,48 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey ch
 		} else {
 			/************ 之前比较过的key，进入后面的多轮比较 ***********/
 			// 这3种类型，重新比较
-			if keyInfo[i].conflictType == LackSourceConflict ||
-					keyInfo[i].conflictType == LackTargetConflict ||
-					keyInfo[i].conflictType == TypeConflict {
-				keyInfo[i].tp = EndKeyType            // 重新取 type、len
-				keyInfo[i].conflictType = EndConflict // 使用 第一轮比较用的方式
+			if keyInfo[i].ConflictType == common.LackSourceConflict ||
+					keyInfo[i].ConflictType == common.LackTargetConflict ||
+					keyInfo[i].ConflictType == common.TypeConflict {
+				keyInfo[i].Tp = common.EndKeyType            // 重新取 type、len
+				keyInfo[i].ConflictType = common.EndConflict // 使用 第一轮比较用的方式
 				retryNewVerifyKeyInfo = append(retryNewVerifyKeyInfo, keyInfo[i])
 				continue
 			}
 
-			if keyInfo[i].conflictType == ValueConflict {
-				if keyInfo[i].tp != StringType &&
-						(keyInfo[i].sourceAttr.itemcount > BigKeyThreshold || keyInfo[i].targetAttr.itemcount > BigKeyThreshold) &&
+			if keyInfo[i].ConflictType == common.ValueConflict {
+				if keyInfo[i].Tp != common.StringKeyType &&
+						(keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold || keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold) &&
 						p.ignoreBigKey {
 					// 如果启用忽略大key开关，则进入这个分支
-					if keyInfo[i].sourceAttr.itemcount != keyInfo[i].targetAttr.itemcount {
-						keyInfo[i].conflictType = ValueConflict
+					if keyInfo[i].SourceAttr.ItemCount != keyInfo[i].TargetAttr.ItemCount {
+						keyInfo[i].ConflictType = common.ValueConflict
 						p.IncrKeyStat(keyInfo[i])
 						conflictKey <- keyInfo[i]
 					} else {
-						keyInfo[i].conflictType = NoneConflict
+						keyInfo[i].ConflictType = common.NoneConflict
 						p.IncrKeyStat(keyInfo[i])
 					}
 					continue
 				}
 
-				switch keyInfo[i].tp {
+				switch keyInfo[i].Tp {
 				// string 和 list 每次都要重新比较所有field value。
 				// list有lpush、lpop，会导致field value平移，所以需要重新比较所有field value
-				case StringType:
+				case common.StringKeyType:
 					fullCheckFetchAllKeyInfo = append(fullCheckFetchAllKeyInfo, keyInfo[i])
-				case ListType:
-					if keyInfo[i].sourceAttr.itemcount > BigKeyThreshold || keyInfo[i].targetAttr.itemcount > BigKeyThreshold {
+				case common.ListKeyType:
+					if keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold || keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold {
 						p.CheckFullBigValue_List(keyInfo[i], conflictKey, sourceClient, targetClient)
 					} else {
 						fullCheckFetchAllKeyInfo = append(fullCheckFetchAllKeyInfo, keyInfo[i])
 					}
 					// hash、set、zset, 只比较前一轮有不一致的field
-				case HashType:
+				case common.HashKeyType:
 					p.CheckPartialValueHash(keyInfo[i], conflictKey, sourceClient, targetClient)
-				case SetType:
+				case common.SetKeyType:
 					p.CheckPartialValueSet(keyInfo[i], conflictKey, sourceClient, targetClient)
-				case ZsetType:
+				case common.ZsetKeyType:
 					p.CheckPartialValueSortedSet(keyInfo[i], conflictKey, sourceClient, targetClient)
 				}
 				continue
@@ -379,7 +344,7 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*Key, conflictKey ch
 
 }
 
-func (p *FullValueVerifier) CheckFullValueFetchAll(keyInfo []*Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *FullValueVerifier) CheckFullValueFetchAll(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	// fetch value
 	sourceReply, err := sourceClient.PipeValueCommand(keyInfo)
 	if err != nil {
@@ -393,8 +358,8 @@ func (p *FullValueVerifier) CheckFullValueFetchAll(keyInfo []*Key, conflictKey c
 
 	// compare value
 	for i, oneKeyInfo := range keyInfo {
-		switch oneKeyInfo.tp {
-		case StringType:
+		switch oneKeyInfo.Tp {
+		case common.StringKeyType:
 			var sourceValue, targetValue []byte
 			if sourceReply[i] != nil {
 				sourceValue = sourceReply[i].([]byte)
@@ -404,28 +369,28 @@ func (p *FullValueVerifier) CheckFullValueFetchAll(keyInfo []*Key, conflictKey c
 			}
 			p.Compare_String(oneKeyInfo, conflictKey, sourceValue, targetValue)
 			p.IncrKeyStat(oneKeyInfo)
-		case HashType:
+		case common.HashKeyType:
 			fallthrough
-		case ZsetType:
+		case common.ZsetKeyType:
 			sourceValue, targetValue := ValueHelper_Hash_SortedSet(sourceReply[i]), ValueHelper_Hash_SortedSet(targetReply[i])
 			p.Compare_Hash_Set_SortedSet(oneKeyInfo, conflictKey, sourceValue, targetValue)
-		case ListType:
+		case common.ListKeyType:
 			sourceValue, targetValue := ValueHelper_List(sourceReply[i]), ValueHelper_List(targetReply[i])
 			p.Compare_List(oneKeyInfo, conflictKey, sourceValue, targetValue)
-		case SetType:
+		case common.SetKeyType:
 			sourceValue, targetValue := ValueHelper_Set(sourceReply[i]), ValueHelper_Set(targetReply[i])
 			p.Compare_Hash_Set_SortedSet(oneKeyInfo, conflictKey, sourceValue, targetValue)
 		}
 	}
 }
 
-func (p *FullValueVerifier) CheckPartialValueHash(oneKeyInfo *Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *FullValueVerifier) CheckPartialValueHash(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	sourceValue, targetValue := make(map[string][]byte), make(map[string][]byte)
-	for fieldIndex := 0; fieldIndex < len(oneKeyInfo.field); {
+	for fieldIndex := 0; fieldIndex < len(oneKeyInfo.Field); {
 		args := make([]interface{}, 0, p.param.batchCount)
-		args = append(args, oneKeyInfo.key)
-		for count := 0; count < p.param.batchCount && fieldIndex < len(oneKeyInfo.field); count, fieldIndex = count+1, fieldIndex+1 {
-			args = append(args, oneKeyInfo.field[fieldIndex].field)
+		args = append(args, oneKeyInfo.Key)
+		for count := 0; count < p.param.batchCount && fieldIndex < len(oneKeyInfo.Field); count, fieldIndex = count+1, fieldIndex+1 {
+			args = append(args, oneKeyInfo.Field[fieldIndex].Field)
 		}
 
 		sourceReply, err := sourceClient.Do("hmget", args...)
@@ -448,22 +413,22 @@ func (p *FullValueVerifier) CheckPartialValueHash(oneKeyInfo *Key, conflictKey c
 				targetValue[fieldStr] = tmpTargetValue[i].([]byte)
 			}
 		}
-	} // end of for fieldIndex := 0; fieldIndex < len(oneKeyInfo.field)
+	} // end of for fieldIndex := 0; fieldIndex < len(oneKeyInfo.Field)
 	p.Compare_Hash_Set_SortedSet(oneKeyInfo, conflictKey, sourceValue, targetValue)
 }
 
-func (p *FullValueVerifier) CheckPartialValueSet(oneKeyInfo *Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *FullValueVerifier) CheckPartialValueSet(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	sourceValue, targetValue := make(map[string][]byte), make(map[string][]byte)
-	for fieldIndex := 0; fieldIndex < len(oneKeyInfo.field); {
+	for fieldIndex := 0; fieldIndex < len(oneKeyInfo.Field); {
 		sendField := make([][]byte, 0, p.param.batchCount)
-		for count := 0; count < p.param.batchCount && fieldIndex < len(oneKeyInfo.field); count, fieldIndex = count+1, fieldIndex+1 {
-			sendField = append(sendField, oneKeyInfo.field[fieldIndex].field)
+		for count := 0; count < p.param.batchCount && fieldIndex < len(oneKeyInfo.Field); count, fieldIndex = count+1, fieldIndex+1 {
+			sendField = append(sendField, oneKeyInfo.Field[fieldIndex].Field)
 		}
-		tmpSourceValue, err := sourceClient.PipeSismemberCommand(oneKeyInfo.key, sendField)
+		tmpSourceValue, err := sourceClient.PipeSismemberCommand(oneKeyInfo.Key, sendField)
 		if err != nil {
 			panic(logger.Error(err))
 		}
-		tmpTargetValue, err := targetClient.PipeSismemberCommand(oneKeyInfo.key, sendField)
+		tmpTargetValue, err := targetClient.PipeSismemberCommand(oneKeyInfo.Key, sendField)
 		if err != nil {
 			panic(logger.Error(err))
 		}
@@ -478,23 +443,23 @@ func (p *FullValueVerifier) CheckPartialValueSet(oneKeyInfo *Key, conflictKey ch
 				targetValue[fieldStr] = nil
 			}
 		}
-	} // for fieldIndex := 0; fieldIndex < len(oneKeyInfo.field);
+	} // for fieldIndex := 0; fieldIndex < len(oneKeyInfo.Field);
 	p.Compare_Hash_Set_SortedSet(oneKeyInfo, conflictKey, sourceValue, targetValue)
 }
 
-func (p *FullValueVerifier) CheckPartialValueSortedSet(oneKeyInfo *Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *FullValueVerifier) CheckPartialValueSortedSet(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	sourceValue, targetValue := make(map[string][]byte), make(map[string][]byte)
-	for fieldIndex := 0; fieldIndex < len(oneKeyInfo.field); {
+	for fieldIndex := 0; fieldIndex < len(oneKeyInfo.Field); {
 		sendField := make([][]byte, 0, p.param.batchCount)
-		for count := 0; count < p.param.batchCount && fieldIndex < len(oneKeyInfo.field); count, fieldIndex = count+1, fieldIndex+1 {
-			sendField = append(sendField, oneKeyInfo.field[fieldIndex].field)
+		for count := 0; count < p.param.batchCount && fieldIndex < len(oneKeyInfo.Field); count, fieldIndex = count+1, fieldIndex+1 {
+			sendField = append(sendField, oneKeyInfo.Field[fieldIndex].Field)
 		}
 
-		tmpSourceValue, err := sourceClient.PipeZscoreCommand(oneKeyInfo.key, sendField)
+		tmpSourceValue, err := sourceClient.PipeZscoreCommand(oneKeyInfo.Key, sendField)
 		if err != nil {
 			panic(logger.Error(err))
 		}
-		tmpTargetValue, err := targetClient.PipeZscoreCommand(oneKeyInfo.key, sendField)
+		tmpTargetValue, err := targetClient.PipeZscoreCommand(oneKeyInfo.Key, sendField)
 		if err != nil {
 			panic(logger.Error(err))
 		}
@@ -512,8 +477,8 @@ func (p *FullValueVerifier) CheckPartialValueSortedSet(oneKeyInfo *Key, conflict
 	p.Compare_Hash_Set_SortedSet(oneKeyInfo, conflictKey, sourceValue, targetValue)
 }
 
-func (p *FullValueVerifier) CheckFullBigValue_List(oneKeyInfo *Key, conflictKey chan<- *Key, sourceClient *RedisClient, targetClient *RedisClient) {
-	conflictField := make([]Field, 0, oneKeyInfo.sourceAttr.itemcount/100+1)
+func (p *FullValueVerifier) CheckFullBigValue_List(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
+	conflictField := make([]common.Field, 0, oneKeyInfo.SourceAttr.ItemCount/100+1)
 	oneCmpCount := p.param.batchCount * 10
 	if oneCmpCount > 10240 {
 		oneCmpCount = 10240
@@ -521,29 +486,29 @@ func (p *FullValueVerifier) CheckFullBigValue_List(oneKeyInfo *Key, conflictKey 
 
 	startIndex := 0
 	for {
-		sourceReply, err := sourceClient.Do("lrange", oneKeyInfo.key, startIndex, startIndex+oneCmpCount-1)
+		sourceReply, err := sourceClient.Do("lrange", oneKeyInfo.Key, startIndex, startIndex+oneCmpCount-1)
 		if err != nil {
 			panic(logger.Critical(err))
 		}
 		sourceValue := sourceReply.([]interface{})
 
-		targetReply, err := targetClient.Do("lrange", oneKeyInfo.key, startIndex, startIndex+oneCmpCount-1)
+		targetReply, err := targetClient.Do("lrange", oneKeyInfo.Key, startIndex, startIndex+oneCmpCount-1)
 		if err != nil {
 			panic(logger.Error(err))
 		}
 		targetValue := targetReply.([]interface{})
 
-		minLen := min(len(sourceValue), len(targetValue))
+		minLen := common.Min(len(sourceValue), len(targetValue))
 		for i := 0; i < minLen; i++ {
 			if bytes.Equal(sourceValue[i].([]byte), targetValue[i].([]byte)) == false {
-				field := Field{
-					field:        []byte(strconv.FormatInt(int64(startIndex+i), 10)),
-					conflictType: ValueConflict,
+				field := common.Field{
+					Field:        []byte(strconv.FormatInt(int64(startIndex+i), 10)),
+					ConflictType: common.ValueConflict,
 				}
 				conflictField = append(conflictField, field)
-				p.IncrFieldStat(oneKeyInfo, ValueConflict)
+				p.IncrFieldStat(oneKeyInfo, common.ValueConflict)
 			} else {
-				p.IncrFieldStat(oneKeyInfo, NoneConflict)
+				p.IncrFieldStat(oneKeyInfo, common.NoneConflict)
 			}
 		}
 		// list 只返回第一个不相同的位置
@@ -559,82 +524,90 @@ func (p *FullValueVerifier) CheckFullBigValue_List(oneKeyInfo *Key, conflictKey 
 
 	if len(conflictField) != 0 {
 		// list 只返回第一个不相同的位置
-		oneKeyInfo.field = conflictField[0:1]
-		oneKeyInfo.conflictType = ValueConflict
+		oneKeyInfo.Field = conflictField[0:1]
+		oneKeyInfo.ConflictType = common.ValueConflict
 		conflictKey <- oneKeyInfo
 	} else {
-		oneKeyInfo.field = nil
-		oneKeyInfo.conflictType = NoneConflict
+		oneKeyInfo.Field = nil
+		oneKeyInfo.ConflictType = common.NoneConflict
 	}
 	p.IncrKeyStat(oneKeyInfo)
 }
 
-func (p *FullValueVerifier) Compare_String(oneKeyInfo *Key, conflictKey chan<- *Key, sourceValue, targetValue []byte) {
+func (p *FullValueVerifier) Compare_String(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceValue, targetValue []byte) {
 	if len(sourceValue) == 0 {
 		if len(targetValue) == 0 {
-			oneKeyInfo.conflictType = NoneConflict
+			oneKeyInfo.ConflictType = common.NoneConflict
 		} else {
-			oneKeyInfo.conflictType = LackSourceConflict
+			oneKeyInfo.ConflictType = common.LackSourceConflict
 		}
 	} else if len(targetValue) == 0 {
 		if len(sourceValue) == 0 {
-			oneKeyInfo.conflictType = NoneConflict
+			oneKeyInfo.ConflictType = common.NoneConflict
 		} else {
-			oneKeyInfo.conflictType = LackTargetConflict
+			oneKeyInfo.ConflictType = common.LackTargetConflict
 		}
 	} else if bytes.Equal(sourceValue, targetValue) == false {
-		oneKeyInfo.conflictType = ValueConflict
+		oneKeyInfo.ConflictType = common.ValueConflict
 	} else {
-		oneKeyInfo.conflictType = NoneConflict
+		oneKeyInfo.ConflictType = common.NoneConflict
 	}
-	if oneKeyInfo.conflictType != NoneConflict {
+	if oneKeyInfo.ConflictType != common.NoneConflict {
 		conflictKey <- oneKeyInfo
 	}
 }
 
-func (p *FullValueVerifier) Compare_Hash_Set_SortedSet(oneKeyInfo *Key, conflictKey chan<- *Key, sourceValue, targetValue map[string][]byte) {
-	conflictField := make([]Field, 0, len(sourceValue)/50+1)
+func (p *FullValueVerifier) Compare_Hash_Set_SortedSet(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceValue, targetValue map[string][]byte) {
+	conflictField := make([]common.Field, 0, len(sourceValue)/50+1)
 	for k, v := range sourceValue {
 		vTarget, ok := targetValue[k]
 		if ok == false {
-			conflictField = append(conflictField, Field{field: []byte(k), conflictType: LackTargetConflict})
-			p.IncrFieldStat(oneKeyInfo, LackTargetConflict)
+			conflictField = append(conflictField, common.Field{
+				Field: []byte(k),
+				ConflictType: common.LackTargetConflict})
+			p.IncrFieldStat(oneKeyInfo, common.LackTargetConflict)
 		} else {
 			delete(targetValue, k)
 			if bytes.Equal(v, vTarget) == false {
-				conflictField = append(conflictField, Field{field: []byte(k), conflictType: ValueConflict})
-				p.IncrFieldStat(oneKeyInfo, ValueConflict)
+				conflictField = append(conflictField, common.Field{
+					Field: []byte(k),
+					ConflictType: common.ValueConflict})
+				p.IncrFieldStat(oneKeyInfo, common.ValueConflict)
 			} else {
-				p.IncrFieldStat(oneKeyInfo, NoneConflict)
+				p.IncrFieldStat(oneKeyInfo, common.NoneConflict)
 			}
 		}
 	}
 
 	for k, _ := range targetValue {
-		conflictField = append(conflictField, Field{field: []byte(k), conflictType: LackSourceConflict})
-		p.IncrFieldStat(oneKeyInfo, LackSourceConflict)
+		conflictField = append(conflictField, common.Field{
+			Field: []byte(k),
+			ConflictType: common.LackSourceConflict})
+		p.IncrFieldStat(oneKeyInfo, common.LackSourceConflict)
 	}
 
 	if len(conflictField) != 0 {
-		oneKeyInfo.field = conflictField
-		oneKeyInfo.conflictType = ValueConflict
+		oneKeyInfo.Field = conflictField
+		oneKeyInfo.ConflictType = common.ValueConflict
 		conflictKey <- oneKeyInfo
 	} else {
-		oneKeyInfo.conflictType = NoneConflict
+		oneKeyInfo.ConflictType = common.NoneConflict
 	}
 	p.IncrKeyStat(oneKeyInfo)
 }
 
-func (p *FullValueVerifier) Compare_List(oneKeyInfo *Key, conflictKey chan<- *Key, sourceValue, targetValue [][]byte) {
-	minLen := min(len(sourceValue), len(targetValue))
+func (p *FullValueVerifier) Compare_List(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceValue, targetValue [][]byte) {
+	minLen := common.Min(len(sourceValue), len(targetValue))
 
-	oneKeyInfo.conflictType = NoneConflict
+	oneKeyInfo.ConflictType = common.NoneConflict
 	for i := 0; i < minLen; i++ {
 		if bytes.Equal(sourceValue[i], targetValue[i]) == false {
 			// list 只保存第一个不一致的field
-			oneKeyInfo.field = make([]Field, 1)
-			oneKeyInfo.field[0] = Field{field: []byte(strconv.FormatInt(int64(i), 10)), conflictType: ValueConflict}
-			oneKeyInfo.conflictType = ValueConflict
+			oneKeyInfo.Field = make([]common.Field, 1)
+			oneKeyInfo.Field[0] = common.Field{
+				Field: []byte(strconv.FormatInt(int64(i), 10)),
+				ConflictType: common.ValueConflict}
+			oneKeyInfo.ConflictType = common.ValueConflict
 			conflictKey <- oneKeyInfo
 			break
 		}
@@ -656,7 +629,7 @@ type FullCheckParameter struct {
 type FullCheck struct {
 	FullCheckParameter
 
-	stat            Stat
+	stat            metric.Stat
 	currentDB       int32
 	times           int
 	db              [100]*sql.DB
@@ -695,45 +668,38 @@ func NewFullCheck(f FullCheckParameter, checktype CheckType) *FullCheck {
 	return fullcheck
 }
 
-type Metric struct {
-	DateTime           string                             `json:"datetime"`
-	Timestamp          int64                              `json:"timestamp"`
-	CompareTimes       int                                `json:"comparetimes"`
-	Id                 string                             `json:"id"`
-	JobId              string                             `json:"jobid"`
-	TaskId             string                             `json:"taskid"`
-	Db                 int32                              `json:"db"`
-	DbKeys             int64                              `json:"dbkeys"`
-	Process            int64                              `json:"process"`
-	OneCompareFinished bool                               `json:"has_finished"`
-	AllFinished        bool                               `json:"all_finished"`
-	KeyScan            *CounterStat                       `json:"key_scan"`
-	TotalConflict      int64                              `json:"total_conflict"`
-	TotalKeyConflict   int64                              `json:"total_key_conflict"`
-	TotalFieldConflict int64                              `json:"total_field_conflict"`
-	KeyMetric          map[string]map[string]*CounterStat `json:"key_stat"`
-	FieldMetric        map[string]map[string]*CounterStat `json:"field_stat"`
-}
-
-type MetricItem struct {
-	Type     string       `json:"type"`
-	Conflict string       `json:"conflict"`
-	Stat     *CounterStat `json:"stat"`
-}
-
 func (p *FullCheck) PrintStat(finished bool) {
 	var buf bytes.Buffer
 
-	var metric *Metric
-	finishPercent := p.stat.scan.Total() * 100 * int64(p.times) / (p.sourceDBNums[p.currentDB] * int64(p.compareCount))
+	var metricStat *metric.Metric
+	finishPercent := p.stat.Scan.Total() * 100 * int64(p.times) / (p.sourceDBNums[p.currentDB] * int64(p.compareCount))
 	if p.times == 1 {
-		metric = &Metric{CompareTimes: p.times, Db: p.currentDB, DbKeys: p.sourceDBNums[p.currentDB], Process: finishPercent, OneCompareFinished: finished,
+		metricStat = &metric.Metric{
+			CompareTimes: p.times,
+			Db: p.currentDB,
+			DbKeys: p.sourceDBNums[p.currentDB],
+			Process: finishPercent,
+			OneCompareFinished: finished,
 			AllFinished: false,
-			Timestamp:   time.Now().Unix(), DateTime: time.Now().Format("2006-01-02T15:04:05Z"), Id: opts.Id, JobId: opts.JobId, TaskId: opts.TaskId}
-		fmt.Fprintf(&buf, "times:%d,db:%d,dbkeys:%d,finish:%d%%,finished:%v\n", p.times, p.currentDB, p.sourceDBNums[p.currentDB], finishPercent, finished)
+			Timestamp:   time.Now().Unix(),
+			DateTime: time.Now().Format("2006-01-02T15:04:05Z"),
+			Id: opts.Id,
+			JobId: opts.JobId,
+			TaskId: opts.TaskId}
+		fmt.Fprintf(&buf, "times:%d,db:%d,dbkeys:%d,finish:%d%%,finished:%v\n", p.times, p.currentDB,
+			p.sourceDBNums[p.currentDB], finishPercent, finished)
 	} else {
-		metric = &Metric{CompareTimes: p.times, Db: p.currentDB, Process: finishPercent, OneCompareFinished: finished, AllFinished: false,
-			Timestamp: time.Now().Unix(), DateTime: time.Now().Format("2006-01-02T15:04:05Z"), Id: opts.Id, JobId: opts.JobId, TaskId: opts.TaskId}
+		metricStat = &metric.Metric{
+			CompareTimes: p.times,
+			Db: p.currentDB,
+			Process: finishPercent,
+			OneCompareFinished: finished,
+			AllFinished: false,
+			Timestamp: time.Now().Unix(),
+			DateTime: time.Now().Format("2006-01-02T15:04:05Z"),
+			Id: opts.Id,
+			JobId: opts.JobId,
+			TaskId: opts.TaskId}
 		fmt.Fprintf(&buf, "times:%d,db:%d,finished:%v\n", p.times, p.currentDB, finished)
 	}
 
@@ -742,60 +708,64 @@ func (p *FullCheck) PrintStat(finished bool) {
 	p.totalFieldConflict = int64(0)
 
 	// fmt.Fprintf(&buf, "--- key scan ---\n")
-	fmt.Fprintf(&buf, "KeyScan:%v\n", p.stat.scan)
-	metric.KeyScan = p.stat.scan.Json()
-	metric.KeyMetric = make(map[string]map[string]*CounterStat)
+	fmt.Fprintf(&buf, "KeyScan:%v\n", p.stat.Scan)
+	metricStat.KeyScan = p.stat.Scan.Json()
+	metricStat.KeyMetric = make(map[string]map[string]*metric.CounterStat)
 
 	// fmt.Fprintf(&buf, "--- key equal ---\n")
-	for i := KeyTypeIndex(0); i < EndKeyTypeIndex; i++ {
-		metric.KeyMetric[i.String()] = make(map[string]*CounterStat)
-		if p.stat.conflictKey[i][NoneConflict].Total() != 0 {
-			metric.KeyMetric[i.String()]["equal"] = p.stat.conflictKey[i][NoneConflict].Json()
+	for i := common.KeyTypeIndex(0); i < common.EndKeyTypeIndex; i++ {
+		metricStat.KeyMetric[i.String()] = make(map[string]*metric.CounterStat)
+		if p.stat.ConflictKey[i][common.NoneConflict].Total() != 0 {
+			metricStat.KeyMetric[i.String()]["equal"] = p.stat.ConflictKey[i][common.NoneConflict].Json()
 			if p.times == p.compareCount {
-				fmt.Fprintf(&buf, "KeyEqualAtLast|%s|%s|%v\n", i, NoneConflict, p.stat.conflictKey[i][NoneConflict])
+				fmt.Fprintf(&buf, "KeyEqualAtLast|%s|%s|%v\n", i, common.NoneConflict, 
+					p.stat.ConflictKey[i][common.NoneConflict])
 			} else {
-				fmt.Fprintf(&buf, "KeyEqualInProcess|%s|%s|%v\n", i, NoneConflict, p.stat.conflictKey[i][NoneConflict])
+				fmt.Fprintf(&buf, "KeyEqualInProcess|%s|%s|%v\n", i, common.NoneConflict, 
+					p.stat.ConflictKey[i][common.NoneConflict])
 			}
 		}
 	}
 	// fmt.Fprintf(&buf, "--- key conflict ---\n")
-	for i := KeyTypeIndex(0); i < EndKeyTypeIndex; i++ {
-		for j := ConflictType(0); j < NoneConflict; j++ {
-			if p.stat.conflictKey[i][j].Total() != 0 {
-				metric.KeyMetric[i.String()][j.String()] = p.stat.conflictKey[i][j].Json()
+	for i := common.KeyTypeIndex(0); i < common.EndKeyTypeIndex; i++ {
+		for j := common.ConflictType(0); j < common.NoneConflict; j++ {
+			if p.stat.ConflictKey[i][j].Total() != 0 {
+				metricStat.KeyMetric[i.String()][j.String()] = p.stat.ConflictKey[i][j].Json()
 				if p.times == p.compareCount {
-					fmt.Fprintf(&buf, "KeyConflictAtLast|%s|%s|%v\n", i, j, p.stat.conflictKey[i][j])
-					p.totalKeyConflict += p.stat.conflictKey[i][j].Total()
+					fmt.Fprintf(&buf, "KeyConflictAtLast|%s|%s|%v\n", i, j, p.stat.ConflictKey[i][j])
+					p.totalKeyConflict += p.stat.ConflictKey[i][j].Total()
 				} else {
-					fmt.Fprintf(&buf, "KeyConflictInProcess|%s|%s|%v\n", i, j, p.stat.conflictKey[i][j])
+					fmt.Fprintf(&buf, "KeyConflictInProcess|%s|%s|%v\n", i, j, p.stat.ConflictKey[i][j])
 				}
 			}
 		}
 	}
 
-	metric.FieldMetric = make(map[string]map[string]*CounterStat)
+	metricStat.FieldMetric = make(map[string]map[string]*metric.CounterStat)
 	// fmt.Fprintf(&buf, "--- field equal ---\n")
-	for i := KeyTypeIndex(0); i < EndKeyTypeIndex; i++ {
-		metric.FieldMetric[i.String()] = make(map[string]*CounterStat)
-		if p.stat.conflictField[i][NoneConflict].Total() != 0 {
-			metric.FieldMetric[i.String()]["equal"] = p.stat.conflictField[i][NoneConflict].Json()
+	for i := common.KeyTypeIndex(0); i < common.EndKeyTypeIndex; i++ {
+		metricStat.FieldMetric[i.String()] = make(map[string]*metric.CounterStat)
+		if p.stat.ConflictField[i][common.NoneConflict].Total() != 0 {
+			metricStat.FieldMetric[i.String()]["equal"] = p.stat.ConflictField[i][common.NoneConflict].Json()
 			if p.times == p.compareCount {
-				fmt.Fprintf(&buf, "FieldEqualAtLast|%s|%s|%v\n", i, NoneConflict, p.stat.conflictField[i][NoneConflict])
+				fmt.Fprintf(&buf, "FieldEqualAtLast|%s|%s|%v\n", i, common.NoneConflict,
+					p.stat.ConflictField[i][common.NoneConflict])
 			} else {
-				fmt.Fprintf(&buf, "FieldEqualInProcess|%s|%s|%v\n", i, NoneConflict, p.stat.conflictField[i][NoneConflict])
+				fmt.Fprintf(&buf, "FieldEqualInProcess|%s|%s|%v\n", i, common.NoneConflict,
+					p.stat.ConflictField[i][common.NoneConflict])
 			}
 		}
 	}
 	// fmt.Fprintf(&buf, "--- field conflict  ---\n")
-	for i := KeyTypeIndex(0); i < EndKeyTypeIndex; i++ {
-		for j := ConflictType(0); j < NoneConflict; j++ {
-			if p.stat.conflictField[i][j].Total() != 0 {
-				metric.FieldMetric[i.String()][j.String()] = p.stat.conflictField[i][j].Json()
+	for i := common.KeyTypeIndex(0); i < common.EndKeyTypeIndex; i++ {
+		for j := common.ConflictType(0); j < common.NoneConflict; j++ {
+			if p.stat.ConflictField[i][j].Total() != 0 {
+				metricStat.FieldMetric[i.String()][j.String()] = p.stat.ConflictField[i][j].Json()
 				if p.times == p.compareCount {
-					fmt.Fprintf(&buf, "FieldConflictAtLast|%s|%s|%v\n", i, j, p.stat.conflictField[i][j])
-					p.totalFieldConflict += p.stat.conflictField[i][j].Total()
+					fmt.Fprintf(&buf, "FieldConflictAtLast|%s|%s|%v\n", i, j, p.stat.ConflictField[i][j])
+					p.totalFieldConflict += p.stat.ConflictField[i][j].Total()
 				} else {
-					fmt.Fprintf(&buf, "FieldConflictInProcess|%s|%s|%v\n", i, j, p.stat.conflictField[i][j])
+					fmt.Fprintf(&buf, "FieldConflictInProcess|%s|%s|%v\n", i, j, p.stat.ConflictField[i][j])
 				}
 			}
 		}
@@ -806,17 +776,17 @@ func (p *FullCheck) PrintStat(finished bool) {
 		metricsfile, _ := os.OpenFile(opts.MetricFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		defer metricsfile.Close()
 
-		metricstr, _ := json.Marshal(metric)
+		metricstr, _ := json.Marshal(metricStat)
 		metricsfile.WriteString(fmt.Sprintf("%s\n", string(metricstr)))
 
 		if p.times == p.compareCount && finished {
-			metric.AllFinished = true
-			metric.Process = int64(100)
-			metric.TotalConflict = p.totalConflict
-			metric.TotalKeyConflict = p.totalKeyConflict
-			metric.TotalFieldConflict = p.totalFieldConflict
+			metricStat.AllFinished = true
+			metricStat.Process = int64(100)
+			metricStat.TotalConflict = p.totalConflict
+			metricStat.TotalKeyConflict = p.totalKeyConflict
+			metricStat.TotalFieldConflict = p.totalFieldConflict
 
-			metricstr, _ := json.Marshal(metric)
+			metricstr, _ := json.Marshal(metricStat)
 			metricsfile.WriteString(fmt.Sprintf("%s\n", string(metricstr)))
 		}
 	} else {
@@ -825,7 +795,7 @@ func (p *FullCheck) PrintStat(finished bool) {
 }
 
 func (p *FullCheck) IncrScanStat(a int) {
-	p.stat.scan.Inc(a)
+	p.stat.Scan.Inc(a)
 }
 
 func (p *FullCheck) Start() {
@@ -903,7 +873,7 @@ func (p *FullCheck) Start() {
 			p.currentDB = db
 			p.stat.Reset()
 			// init stat timer
-			var tickerStat *time.Ticker = time.NewTicker(time.Second * StatRollFrequency)
+			var tickerStat *time.Ticker = time.NewTicker(time.Second * common.StatRollFrequency)
 			ctxStat, cancelStat := context.WithCancel(context.Background()) // 主动cancel
 			go func(ctx context.Context) {
 				defer tickerStat.Stop()
@@ -919,8 +889,8 @@ func (p *FullCheck) Start() {
 			}(ctxStat)
 
 			logger.Infof("start compare db %d", p.currentDB)
-			keys := make(chan []*Key, 1024)
-			conflictKey := make(chan *Key, 1024)
+			keys := make(chan []*common.Key, 1024)
+			conflictKey := make(chan *common.Key, 1024)
 			var wg, wg2 sync.WaitGroup
 			// start scan, get all keys
 			if p.times == 1 {
@@ -1033,7 +1003,7 @@ CREATE TABLE IF NOT EXISTS %s(
 	}
 }
 
-func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
+func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 	sourceClient, err := NewRedisClient(p.sourceHost, p.currentDB)
 	if err != nil {
 		panic(logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
@@ -1075,7 +1045,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 			if ok == false {
 				panic(logger.Criticalf("scan failed, result: %+v", reply))
 			}
-			keysInfo := make([]*Key, 0, len(keylist))
+			keysInfo := make([]*common.Key, 0, len(keylist))
 			for _, value := range keylist {
 				bytes, ok = value.([]byte)
 				if ok == false {
@@ -1087,10 +1057,10 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 					continue
 				}
 				
-				keysInfo = append(keysInfo, &Key{
-					key:          bytes,
-					tp:           EndKeyType,
-					conflictType: EndConflict,
+				keysInfo = append(keysInfo, &common.Key{
+					Key:          bytes,
+					Tp:           common.EndKeyType,
+					ConflictType: common.EndConflict,
 				})
 			}
 			p.IncrScanStat(len(keysInfo))
@@ -1104,16 +1074,19 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*Key) {
 	close(allKeys)
 }
 
-func (p *FullCheck) ScanFromDB(allKeys chan<- []*Key) {
+func (p *FullCheck) ScanFromDB(allKeys chan<- []*common.Key) {
 	conflictKeyTableName, conflictFieldTableName := p.GetLastResultTable()
 
-	keyStatm, err := p.db[p.times-1].Prepare(fmt.Sprintf("select id,key,type,conflict_type,source_len,target_len from %s where id>? and db=%d limit %d", conflictKeyTableName, p.currentDB, p.batchCount))
+	keyQuery := fmt.Sprintf("select id,key,type,conflict_type,source_len,target_len from %s where id>? and db=%d limit %d",
+		conflictKeyTableName, p.currentDB, p.batchCount)
+	keyStatm, err := p.db[p.times-1].Prepare(keyQuery)
 	if err != nil {
 		panic(logger.Error(err))
 	}
 	defer keyStatm.Close()
 
-	fieldStatm, err := p.db[p.times-1].Prepare(fmt.Sprintf("select field,conflict_type from %s where key_id=?", conflictFieldTableName))
+	fieldQuery := fmt.Sprintf("select field,conflict_type from %s where key_id=?", conflictFieldTableName)
+	fieldStatm, err := p.db[p.times-1].Prepare(fieldQuery)
 	if err != nil {
 		panic(logger.Error(err))
 	}
@@ -1125,7 +1098,7 @@ func (p *FullCheck) ScanFromDB(allKeys chan<- []*Key) {
 		if err != nil {
 			panic(logger.Error(err))
 		}
-		keyInfo := make([]*Key, 0, p.batchCount)
+		keyInfo := make([]*common.Key, 0, p.batchCount)
 		for rows.Next() {
 			var key, keytype, conflictType string
 			var id, source_len, target_len int64
@@ -1133,22 +1106,22 @@ func (p *FullCheck) ScanFromDB(allKeys chan<- []*Key) {
 			if err != nil {
 				panic(logger.Error(err))
 			}
-			oneKeyInfo := &Key{
-				key:          []byte(key),
-				tp:           NewKeyType(keytype),
-				conflictType: NewConflictType(conflictType),
-				sourceAttr:   Attribute{itemcount: source_len},
-				targetAttr:   Attribute{itemcount: target_len},
+			oneKeyInfo := &common.Key{
+				Key:          []byte(key),
+				Tp:           common.NewKeyType(keytype),
+				ConflictType: common.NewConflictType(conflictType),
+				SourceAttr:   common.Attribute{ItemCount: source_len},
+				TargetAttr:   common.Attribute{ItemCount: target_len},
 			}
-			if oneKeyInfo.tp == EndKeyType {
+			if oneKeyInfo.Tp == common.EndKeyType {
 				panic(logger.Errorf("invalid type from table %s: key=%s type=%s ", conflictKeyTableName, key, keytype))
 			}
-			if oneKeyInfo.conflictType == EndConflict {
+			if oneKeyInfo.ConflictType == common.EndConflict {
 				panic(logger.Errorf("invalid conflict_type from table %s: key=%s conflict_type=%s ", conflictKeyTableName, key, conflictType))
 			}
 
-			if oneKeyInfo.tp != StringType {
-				oneKeyInfo.field = make([]Field, 0, 10)
+			if oneKeyInfo.Tp != common.StringKeyType {
+				oneKeyInfo.Field = make([]common.Field, 0, 10)
 				rowsField, err := fieldStatm.Query(id)
 				if err != nil {
 					panic(logger.Error(err))
@@ -1159,14 +1132,14 @@ func (p *FullCheck) ScanFromDB(allKeys chan<- []*Key) {
 					if err != nil {
 						panic(logger.Error(err))
 					}
-					oneField := Field{
-						field:        []byte(field),
-						conflictType: NewConflictType(conflictType),
+					oneField := common.Field{
+						Field:        []byte(field),
+						ConflictType: common.NewConflictType(conflictType),
 					}
-					if oneField.conflictType == EndConflict {
+					if oneField.ConflictType == common.EndConflict {
 						panic(logger.Errorf("invalid conflict_type from table %s: field=%s type=%s ", conflictFieldTableName, field, conflictType))
 					}
-					oneKeyInfo.field = append(oneKeyInfo.field, oneField)
+					oneKeyInfo.Field = append(oneKeyInfo.Field, oneField)
 				}
 				if err := rowsField.Err(); err != nil {
 					panic(logger.Error(err))
@@ -1192,7 +1165,7 @@ func (p *FullCheck) ScanFromDB(allKeys chan<- []*Key) {
 	} // for{}
 }
 
-func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*Key, conflictKey chan<- *Key) {
+func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*common.Key, conflictKey chan<- *common.Key) {
 	sourceClient, err := NewRedisClient(p.sourceHost, p.currentDB)
 	if err != nil {
 		panic(logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
@@ -1222,14 +1195,14 @@ func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*Key, conflictKey chan<- *
 	} // for oneGroupKeys := range allKeys
 }
 
-func (p *FullCheck) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient, targetClient *RedisClient) {
+func (p *FullCheck) FetchTypeAndLen(keyInfo []*common.Key, sourceClient *RedisClient, targetClient *RedisClient) {
 	// fetch type
 	sourceKeyTypeStr, err := sourceClient.PipeTypeCommand(keyInfo)
 	if err != nil {
 		panic(logger.Critical(err))
 	}
 	for i, t := range sourceKeyTypeStr {
-		keyInfo[i].tp = NewKeyType(t)
+		keyInfo[i].Tp = common.NewKeyType(t)
 	}
 
 	var wg sync.WaitGroup
@@ -1241,7 +1214,7 @@ func (p *FullCheck) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient, t
 			panic(logger.Critical(err))
 		}
 		for i, keylen := range sourceKeyLen {
-			keyInfo[i].sourceAttr.itemcount = keylen
+			keyInfo[i].SourceAttr.ItemCount = keylen
 		}
 		wg.Done()
 	}()
@@ -1253,7 +1226,7 @@ func (p *FullCheck) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient, t
 			panic(logger.Critical(err))
 		}
 		for i, keylen := range targetKeyLen {
-			keyInfo[i].targetAttr.itemcount = keylen
+			keyInfo[i].TargetAttr.ItemCount = keylen
 		}
 		wg.Done()
 	}()
@@ -1261,7 +1234,7 @@ func (p *FullCheck) FetchTypeAndLen(keyInfo []*Key, sourceClient *RedisClient, t
 	wg.Wait()
 }
 
-func (p *FullCheck) WriteConflictKey(conflictKey <-chan *Key) {
+func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
 	conflictKeyTableName, conflictFieldTableName := p.GetCurrentResultTable()
 
 	var resultfile *os.File
@@ -1304,14 +1277,14 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *Key) {
 		}
 		count += 1
 
-		result, err := statInsertKey.Exec(string(oneKeyInfo.key), oneKeyInfo.tp.name, oneKeyInfo.conflictType.String(), p.currentDB, oneKeyInfo.sourceAttr.itemcount, oneKeyInfo.targetAttr.itemcount)
+		result, err := statInsertKey.Exec(string(oneKeyInfo.Key), oneKeyInfo.Tp.Name, oneKeyInfo.ConflictType.String(), p.currentDB, oneKeyInfo.SourceAttr.ItemCount, oneKeyInfo.TargetAttr.ItemCount)
 		if err != nil {
 			panic(logger.Error(err))
 		}
-		if len(oneKeyInfo.field) != 0 {
+		if len(oneKeyInfo.Field) != 0 {
 			lastId, _ := result.LastInsertId()
-			for i := 0; i < len(oneKeyInfo.field); i++ {
-				_, err = statInsertField.Exec(string(oneKeyInfo.field[i].field), oneKeyInfo.field[i].conflictType.String(), lastId)
+			for i := 0; i < len(oneKeyInfo.Field); i++ {
+				_, err = statInsertField.Exec(string(oneKeyInfo.Field[i].Field), oneKeyInfo.Field[i].ConflictType.String(), lastId)
 				if err != nil {
 					panic(logger.Error(err))
 				}
@@ -1322,9 +1295,9 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *Key) {
 						panic(logger.Error(err))
 					}
 					// defer finalstat.Close()
-					_, err = finalstat.Exec("", "", string(oneKeyInfo.key), strconv.Itoa(int(p.currentDB)),
-						oneKeyInfo.field[i].conflictType.String(),
-						string(oneKeyInfo.field[i].field))
+					_, err = finalstat.Exec("", "", string(oneKeyInfo.Key), strconv.Itoa(int(p.currentDB)),
+						oneKeyInfo.Field[i].ConflictType.String(),
+						string(oneKeyInfo.Field[i].Field))
 					if err != nil {
 						panic(logger.Error(err))
 					}
@@ -1332,7 +1305,7 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *Key) {
 					finalstat.Close()
 
 					if len(opts.ResultFile) != 0 {
-						resultfile.WriteString(fmt.Sprintf("%d\t%s\t%s\t%s\n", int(p.currentDB), oneKeyInfo.field[i].conflictType.String(), string(oneKeyInfo.key), string(oneKeyInfo.field[i].field)))
+						resultfile.WriteString(fmt.Sprintf("%d\t%s\t%s\t%s\n", int(p.currentDB), oneKeyInfo.Field[i].ConflictType.String(), string(oneKeyInfo.Key), string(oneKeyInfo.Field[i].Field)))
 					}
 				}
 			}
@@ -1343,14 +1316,14 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *Key) {
 					panic(logger.Error(err))
 				}
 				// defer finalstat.Close()
-				_, err = finalstat.Exec("", "", string(oneKeyInfo.key), strconv.Itoa(int(p.currentDB)), oneKeyInfo.conflictType.String(), "")
+				_, err = finalstat.Exec("", "", string(oneKeyInfo.Key), strconv.Itoa(int(p.currentDB)), oneKeyInfo.ConflictType.String(), "")
 				if err != nil {
 					panic(logger.Error(err))
 				}
 				finalstat.Close()
 
 				if len(opts.ResultFile) != 0 {
-					resultfile.WriteString(fmt.Sprintf("%d\t%s\t%s\t%s\n", int(p.currentDB), oneKeyInfo.conflictType.String(), string(oneKeyInfo.key), ""))
+					resultfile.WriteString(fmt.Sprintf("%d\t%s\t%s\t%s\n", int(p.currentDB), oneKeyInfo.ConflictType.String(), string(oneKeyInfo.Key), ""))
 				}
 			}
 		}

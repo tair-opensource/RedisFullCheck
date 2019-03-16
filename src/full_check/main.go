@@ -108,9 +108,9 @@ func main() {
 	if opts.BigKeyThreshold < 0 {
 		panic(logger.Errorf("invalid big key threshold: %d", opts.BigKeyThreshold))
 	} else if opts.BigKeyThreshold == 0 {
-		BigKeyThreshold = 16384
+		common.BigKeyThreshold = 16384
 	} else {
-		BigKeyThreshold = opts.BigKeyThreshold
+		common.BigKeyThreshold = opts.BigKeyThreshold
 	}
 	var filterTree *common.Trie
 	if len(opts.FilterList) != 0 {

@@ -1,8 +1,9 @@
-package main
+package metric
 
 import (
 	"fmt"
 	"sync/atomic"
+	"full_check/common"
 )
 
 type CounterStat struct {
@@ -23,7 +24,7 @@ func (p *AtomicSpeedCounter) Inc(i int) {
 
 func (p *AtomicSpeedCounter) Rotate() {
 	old := atomic.SwapInt64(&p.intervalSum, 0)
-	p.lastSpeed = (old + StatRollFrequency - 1) / StatRollFrequency
+	p.lastSpeed = (old + common.StatRollFrequency - 1) / common.StatRollFrequency
 }
 
 func (p *AtomicSpeedCounter) Reset() {
