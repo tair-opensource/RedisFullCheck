@@ -1,9 +1,9 @@
 2019-03-14 Alibaba Cloud.
 	* VERSION: 1.2.0
-	* BUGFIX: support 5.0 stream.
+	* FEATURE: polish code structure and support 5.0 stream.
 2019-03-07 Alibaba Cloud.
 	* VERSION: 1.0.5
-	* BUGFIX: all keys are filtered when input filter is empty.
+	* BUGFIX: all keys are filtered when input filter is empty, bug from v1.0.3.
 2019-03-04 Alibaba Cloud.
 	* VERSION: 1.0.4
 	* BUGFIX: divisor is zero when parallel is big

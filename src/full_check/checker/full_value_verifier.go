@@ -122,8 +122,9 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 
 			if keyInfo[i].ConflictType == common.ValueConflict {
 				if keyInfo[i].Tp != common.StringKeyType &&
-					(keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold || keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold) &&
-					p.ignoreBigKey {
+						(keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold ||
+							keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold) &&
+						p.ignoreBigKey {
 					// 如果启用忽略大key开关，则进入这个分支
 					if keyInfo[i].SourceAttr.ItemCount != keyInfo[i].TargetAttr.ItemCount {
 						keyInfo[i].ConflictType = common.ValueConflict
