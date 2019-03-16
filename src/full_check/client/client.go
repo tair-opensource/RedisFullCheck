@@ -1,7 +1,6 @@
-package main
+package client
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"io"
@@ -13,15 +12,15 @@ import (
 )
 
 type RedisHost struct {
-	addr      string
-	password  string
-	timeoutMs uint64
-	role      string // "source" or "target"
-	authtype  string // "auth" or "adminauth"
+	Addr      string
+	Password  string
+	TimeoutMs uint64
+	Role      string // "source" or "target"
+	Authtype  string // "auth" or "adminauth"
 }
 
 func (p RedisHost) String() string {
-	return fmt.Sprintf("%s redis addr: %s", p.role, p.addr)
+	return fmt.Sprintf("%s redis addr: %s", p.Role, p.Addr)
 }
 
 type RedisClient struct {
@@ -72,17 +71,17 @@ func (p *RedisClient) CheckHandleNetError(err error) bool {
 func (p *RedisClient) Connect() error {
 	var err error
 	if p.conn == nil {
-		if p.redisHost.timeoutMs == 0 {
-			p.conn, err = redis.Dial("tcp", p.redisHost.addr)
+		if p.redisHost.TimeoutMs == 0 {
+			p.conn, err = redis.Dial("tcp", p.redisHost.Addr)
 		} else {
-			p.conn, err = redis.DialTimeout("tcp", p.redisHost.addr, time.Millisecond*time.Duration(p.redisHost.timeoutMs),
-				time.Millisecond*time.Duration(p.redisHost.timeoutMs), time.Millisecond*time.Duration(p.redisHost.timeoutMs))
+			p.conn, err = redis.DialTimeout("tcp", p.redisHost.Addr, time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
+				time.Millisecond*time.Duration(p.redisHost.TimeoutMs), time.Millisecond*time.Duration(p.redisHost.TimeoutMs))
 		}
 		if err != nil {
 			return err
 		}
-		if len(p.redisHost.password) != 0 {
-			_, err = p.conn.Do(p.redisHost.authtype, p.redisHost.password)
+		if len(p.redisHost.Password) != 0 {
+			_, err = p.conn.Do(p.redisHost.Authtype, p.redisHost.Password)
 			if err != nil {
 				return err
 			}
@@ -509,7 +508,7 @@ func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Ke
 
 		keylist, ok := replyList[1].([]interface{})
 		if ok == false {
-			panic(logger.Criticalf("%s %s failed, result: %+v", scanCmd, string(oneKeyInfo.Key), reply))
+			panic(common.Logger.Criticalf("%s %s failed, result: %+v", scanCmd, string(oneKeyInfo.Key), reply))
 		}
 		switch oneKeyInfo.Tp {
 		case common.HashKeyType:
@@ -531,89 +530,4 @@ func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Ke
 		}
 	} // end for{}
 	return value, nil
-}
-
-func ParseKeyspace(content []byte) (map[int32]int64, error) {
-	if bytes.HasPrefix(content, []byte("# Keyspace")) == false {
-		return nil, fmt.Errorf("invalid info Keyspace: %s", string(content))
-	}
-
-	lines := bytes.Split(content, []byte("\n"))
-	reply := make(map[int32]int64)
-	for _, line := range lines {
-		line = bytes.TrimSpace(line)
-		if bytes.HasPrefix(line, []byte("db")) == true {
-			// line "db0:keys=18,expires=0,avg_ttl=0"
-			items := bytes.Split(line, []byte(":"))
-			db, err := strconv.Atoi(string(items[0][2:]))
-			if err != nil {
-				return nil, err
-			}
-			nums := bytes.Split(items[1], []byte(","))
-			if bytes.HasPrefix(nums[0], []byte("keys=")) == false {
-				return nil, fmt.Errorf("invalid info Keyspace: %s", string(content))
-			}
-			keysNum, err := strconv.ParseInt(string(nums[0][5:]), 10, 0)
-			if err != nil {
-				return nil, err
-			}
-			reply[int32(db)] = int64(keysNum)
-		} // end true
-	} // end for
-	return reply, nil
-}
-
-// ParseInfo convert result of info command to map[string]string.
-// For example, "opapply_source_count:1\r\nopapply_source_0:server_id=3171317,applied_opid=1\r\n" is converted to map[string]string{"opapply_source_count": "1", "opapply_source_0": "server_id=3171317,applied_opid=1"}.
-func ParseInfo(content []byte) map[string]string {
-	result := make(map[string]string, 10)
-	lines := bytes.Split(content, []byte("\r\n"))
-	for i := 0; i < len(lines); i++ {
-		items := bytes.SplitN(lines[i], []byte(":"), 2)
-		if len(items) != 2 {
-			continue
-		}
-		result[string(items[0])] = string(items[1])
-	}
-	return result
-}
-
-func ValueHelper_Hash_SortedSet(reply interface{}) map[string][]byte {
-	if reply == nil {
-		return nil
-	}
-
-	tmpValue := reply.([]interface{})
-	if len(tmpValue) == 0 {
-		return nil
-	}
-	value := make(map[string][]byte)
-	for i := 0; i < len(tmpValue); i += 2 {
-		value[string(tmpValue[i].([]byte))] = tmpValue[i+1].([]byte)
-	}
-	return value
-}
-
-func ValueHelper_Set(reply interface{}) map[string][]byte {
-	tmpValue := reply.([]interface{})
-	if len(tmpValue) == 0 {
-		return nil
-	}
-	value := make(map[string][]byte)
-	for i := 0; i < len(tmpValue); i++ {
-		value[string(tmpValue[i].([]byte))] = nil
-	}
-	return value
-}
-
-func ValueHelper_List(reply interface{}) [][]byte {
-	tmpValue := reply.([]interface{})
-	if len(tmpValue) == 0 {
-		return nil
-	}
-	value := make([][]byte, len(tmpValue))
-	for i := 0; i < len(tmpValue); i++ {
-		value[i] = tmpValue[i].([]byte)
-	}
-	return value
 }

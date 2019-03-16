@@ -1,5 +1,7 @@
 package common
 
+import "github.com/cihub/seelog"
+
 const (
 	MaxRetryCount     = 20 // client attribute
 	StatRollFrequency = 2  // client attribute
@@ -7,6 +9,7 @@ const (
 
 var (
 	BigKeyThreshold int64 = 16384
+	Logger seelog.LoggerInterface
 )
 
 /*

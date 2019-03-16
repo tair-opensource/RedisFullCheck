@@ -1,10 +1,10 @@
-package main
+package common
 
 import (
 	"github.com/cihub/seelog"
 )
 
-func initLog(logFile string) (seelog.LoggerInterface, error) {
+func InitLog(logFile string) (seelog.LoggerInterface, error) {
 	var logConfig string
 	if len(logFile) == 0 {
 		logConfig = `

@@ -1,4 +1,4 @@
-package main
+package full_check
 
 import (
 	"database/sql"

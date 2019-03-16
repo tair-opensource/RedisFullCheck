@@ -3,47 +3,23 @@ package main
 import (
 	"fmt"
 	"full_check/common"
-	"github.com/cihub/seelog"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"strconv"
 	"strings"
+	"full_check/configure"
+	"full_check/full_check"
+	"full_check/checker"
+	"full_check/client"
 )
-
-var logger seelog.LoggerInterface
 
 var VERSION = "$"
 
-var opts struct {
-	SourceAddr      string `short:"s" long:"source" value-name:"SOURCE"  description:"Set host:port of source redis."`
-	SourcePassword  string `short:"p" long:"sourcepassword" value-name:"Password" description:"Set source redis password"`
-	SourceAuthType  string `long:"sourceauthtype" value-name:"AUTH-TYPE" default:"auth" description:"useless for opensource redis, valid value:auth/adminauth" `
-	TargetAddr      string `short:"t" long:"target" value-name:"TARGET"  description:"Set host:port of target redis."`
-	TargetPassword  string `short:"a" long:"targetpassword" value-name:"Password" description:"Set target redis password"`
-	TargetAuthType  string `long:"targetauthtype" value-name:"AUTH-TYPE" default:"auth" description:"useless for opensource redis, valid value:auth/adminauth" `
-	ResultDBFile    string `short:"d" long:"db" value-name:"Sqlite3-DB-FILE" default:"result.db" description:"sqlite3 db file for store result. If exist, it will be removed and a new file is created."`
-	CompareTimes    string `long:"comparetimes" value-name:"COUNT" default:"3" description:"Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison will be done on the previous results."`
-	CompareMode     int    `short:"m" long:"comparemode" default:"2" description:"compare mode, 1: compare full value, 2: only compare value length, 3: only compare keys outline, 4: compare full value, but only compare value length when meets big key"`
-	Id              string `long:"id" default:"unknown" description:"used in metric, run id"`
-	JobId           string `long:"jobid" default:"unknown" description:"used in metric, job id"`
-	TaskId          string `long:"taskid" default:"unknown" description:"used in metric, task id"`
-	Qps             int    `short:"q" long:"qps" default:"15000" description:"max qps limit"`
-	Interval        int    `long:"interval" value-name:"Second" default:"5" description:"The time interval for each round of comparison(Second)"`
-	BatchCount      string `long:"batchcount" value-name:"COUNT" default:"256" description:"the count of key/field per batch compare, valid value [1, 10000]"`
-	Parallel        int    `long:"parallel" value-name:"COUNT" default:"5" description:"concurrent goroutine number for comparison, valid value [1, 100]"`
-	LogFile         string `long:"log" value-name:"FILE" description:"log file, if not specified, log is put to console"`
-	ResultFile      string `long:"result" value-name:"FILE" description:"store all diff result, format is 'db\tdiff-type\tkey\tfield'"`
-	MetricFile      string `long:"metric" value-name:"FILE" description:"metrics file"`
-	BigKeyThreshold int64  `long:"bigkeythreshold" value-name:"COUNT" default:"16384"`
-	FilterList      string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
-	Version         bool   `short:"v" long:"version"`
-}
-
 func main() {
-	// parse opts
-	args, err := flags.Parse(&opts)
+	// parse conf.Opts
+	args, err := flags.Parse(&conf.Opts)
 
-	if opts.Version {
+	if conf.Opts.Version {
 		fmt.Println(VERSION)
 		os.Exit(0)
 	}
@@ -58,7 +34,7 @@ func main() {
 		}
 	}
 
-	if opts.SourceAddr == "" || opts.TargetAddr == "" {
+	if conf.Opts.SourceAddr == "" || conf.Opts.TargetAddr == "" {
 		fmt.Fprintf(os.Stderr, "-s, --source or -t, --target not specified\n")
 		os.Exit(1)
 	}
@@ -69,84 +45,84 @@ func main() {
 	}
 
 	// init log
-	logger, err = initLog(opts.LogFile)
+	common.Logger, err = common.InitLog(conf.Opts.LogFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "init log failed: ", err)
 		os.Exit(1)
 	}
-	logger.Info("init log success")
-	defer logger.Flush()
+	common.Logger.Info("init log success")
+	defer common.Logger.Flush()
 
-	compareCount, err := strconv.Atoi(opts.CompareTimes)
+	compareCount, err := strconv.Atoi(conf.Opts.CompareTimes)
 	if err != nil || compareCount < 1 {
-		panic(logger.Errorf("invalid option cmpcount %s, expect int >=1", opts.CompareTimes))
+		panic(common.Logger.Errorf("invalid option cmpcount %s, expect int >=1", conf.Opts.CompareTimes))
 	}
-	if opts.Interval < 0 {
-		panic(logger.Errorf("invalid option interval %d, expect int >=0", opts.Interval))
+	if conf.Opts.Interval < 0 {
+		panic(common.Logger.Errorf("invalid option interval %d, expect int >=0", conf.Opts.Interval))
 	}
-	batchCount, err := strconv.Atoi(opts.BatchCount)
+	batchCount, err := strconv.Atoi(conf.Opts.BatchCount)
 	if err != nil || batchCount < 1 || batchCount > 10000 {
-		panic(logger.Errorf("invalid option batchcount %s, expect int 1<=batchcount<=10000", opts.BatchCount))
+		panic(common.Logger.Errorf("invalid option batchcount %s, expect int 1<=batchcount<=10000", conf.Opts.BatchCount))
 	}
-	parallel := opts.Parallel
+	parallel := conf.Opts.Parallel
 	if err != nil || parallel < 1 || parallel > 100 {
-		panic(logger.Errorf("invalid option parallel %d, expect 1<=parallel<=100", opts.Parallel))
+		panic(common.Logger.Errorf("invalid option parallel %d, expect 1<=parallel<=100", conf.Opts.Parallel))
 	}
-	qps := opts.Qps
+	qps := conf.Opts.Qps
 	if err != nil || qps < 1 || qps > 5000000 {
-		panic(logger.Errorf("invalid option qps %d, expect 1<=qps<=5000000", opts.Qps))
+		panic(common.Logger.Errorf("invalid option qps %d, expect 1<=qps<=5000000", conf.Opts.Qps))
 	}
-	if opts.SourceAuthType != "auth" && opts.SourceAuthType != "adminauth" {
-		panic(logger.Errorf("invalid sourceauthtype %s, expect auth/adminauth", opts.SourceAuthType))
+	if conf.Opts.SourceAuthType != "auth" && conf.Opts.SourceAuthType != "adminauth" {
+		panic(common.Logger.Errorf("invalid sourceauthtype %s, expect auth/adminauth", conf.Opts.SourceAuthType))
 	}
-	if opts.TargetAuthType != "auth" && opts.TargetAuthType != "adminauth" {
-		panic(logger.Errorf("invalid targetauthtype %s, expect auth/adminauth", opts.TargetAuthType))
+	if conf.Opts.TargetAuthType != "auth" && conf.Opts.TargetAuthType != "adminauth" {
+		panic(common.Logger.Errorf("invalid targetauthtype %s, expect auth/adminauth", conf.Opts.TargetAuthType))
 	}
-	if opts.CompareMode < FullValue || opts.CompareMode > FullValueWithOutline {
-		panic(logger.Errorf("invalid compare mode %d", opts.CompareMode))
+	if conf.Opts.CompareMode < full_check.FullValue || conf.Opts.CompareMode > full_check.FullValueWithOutline {
+		panic(common.Logger.Errorf("invalid compare mode %d", conf.Opts.CompareMode))
 	}
-	if opts.BigKeyThreshold < 0 {
-		panic(logger.Errorf("invalid big key threshold: %d", opts.BigKeyThreshold))
-	} else if opts.BigKeyThreshold == 0 {
+	if conf.Opts.BigKeyThreshold < 0 {
+		panic(common.Logger.Errorf("invalid big key threshold: %d", conf.Opts.BigKeyThreshold))
+	} else if conf.Opts.BigKeyThreshold == 0 {
 		common.BigKeyThreshold = 16384
 	} else {
-		common.BigKeyThreshold = opts.BigKeyThreshold
+		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
 	var filterTree *common.Trie
-	if len(opts.FilterList) != 0 {
+	if len(conf.Opts.FilterList) != 0 {
 		filterTree = common.NewTrie()
-		filterList := strings.Split(opts.FilterList, "|")
+		filterList := strings.Split(conf.Opts.FilterList, "|")
 		for _, filter := range filterList {
 			if filter == "" {
-				panic(logger.Errorf("invalid input filter list: %v", filterList))
+				panic(common.Logger.Errorf("invalid input filter list: %v", filterList))
 			}
 			filterTree.Insert([]byte(filter))
 		}
-		logger.Infof("filter list enabled: %v", filterList)
+		common.Logger.Infof("filter list enabled: %v", filterList)
 	}
 
-	fullCheckParameter := FullCheckParameter{
-		sourceHost: RedisHost{
-			addr:      opts.SourceAddr,
-			password:  opts.SourcePassword,
-			timeoutMs: 0,
-			role:      "source",
-			authtype:  opts.SourceAuthType,
+	fullCheckParameter := checker.FullCheckParameter{
+		SourceHost: client.RedisHost{
+			Addr:      conf.Opts.SourceAddr,
+			Password:  conf.Opts.SourcePassword,
+			TimeoutMs: 0,
+			Role:      "source",
+			Authtype:  conf.Opts.SourceAuthType,
 		},
-		targetHost: RedisHost{
-			addr:      opts.TargetAddr,
-			password:  opts.TargetPassword,
-			timeoutMs: 0,
-			role:      "target",
-			authtype:  opts.TargetAuthType,
+		TargetHost: client.RedisHost{
+			Addr:      conf.Opts.TargetAddr,
+			Password:  conf.Opts.TargetPassword,
+			TimeoutMs: 0,
+			Role:      "target",
+			Authtype:  conf.Opts.TargetAuthType,
 		},
-		resultDBFile: opts.ResultDBFile,
-		compareCount: compareCount,
-		interval:     opts.Interval,
-		batchCount:   batchCount,
-		parallel:     parallel,
-		filterTree:   filterTree,
+		ResultDBFile: conf.Opts.ResultDBFile,
+		CompareCount: compareCount,
+		Interval:     conf.Opts.Interval,
+		BatchCount:   batchCount,
+		Parallel:     parallel,
+		FilterTree:   filterTree,
 	}
-	fullCheck := NewFullCheck(fullCheckParameter, CheckType(opts.CompareMode))
+	fullCheck := full_check.NewFullCheck(fullCheckParameter, full_check.CheckType(conf.Opts.CompareMode))
 	fullCheck.Start()
 }
