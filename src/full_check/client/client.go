@@ -134,9 +134,18 @@ func (p *RedisClient) Close() {
 	}
 }
 
-func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
+type combine struct {
+	command string
+	params  []interface{}
+}
+
+func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix string) ([]interface{}, error) {
+	if len(commands) == 0 {
+		return nil, fmt.Errorf("invalid input commands length[%v]", len(commands))
+	}
+
+	result := make([]interface{}, len(commands))
 	var err error
-	result := make([]string, len(keyInfo))
 	tryCount := 0
 begin:
 	for {
@@ -155,8 +164,8 @@ begin:
 			}
 		}
 
-		for _, key := range keyInfo {
-			err = p.conn.Send("type", key.Key)
+		for _, ele := range commands {
+			err = p.conn.Send(ele.command, ele.params...)
 			if err != nil {
 				if p.CheckHandleNetError(err) {
 					break begin
@@ -172,301 +181,159 @@ begin:
 			return nil, err
 		}
 
-		for i := 0; i < len(keyInfo); i++ {
+		for i := 0; i < len(commands); i++ {
 			reply, err := p.conn.Receive()
 			if err != nil {
 				if p.CheckHandleNetError(err) {
 					break begin
 				}
+				// 此处处理不太好，但是别人代码写死了，我只能这么改了
+				if strings.HasPrefix(err.Error(), specialErrorPrefix) {
+					result[i] = -1
+				}
 				return nil, err
 			}
-			result[i] = reply.(string)
+			result[i] = reply
 		}
 		break
 	} // end for {}
 	return result, nil
+}
+
+func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
+	commands := make([]combine, len(keyInfo))
+	for i, key := range keyInfo {
+		commands[i] = combine{
+			command: "type",
+			params:  []interface{}{key.Key},
+		}
+	}
+
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+		return nil, err
+	} else {
+		result := make([]string, len(keyInfo))
+		for i, ele := range ret {
+			result[i] = ele.(string)
+		}
+		return result, nil
+	}
 }
 
 func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) {
-	var err error
-	result := make([]int64, len(keyInfo))
-	tryCount := 0
-begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
+	commands := make([]combine, len(keyInfo))
+	for i, key := range keyInfo {
+		commands[i] = combine{
+			command: "exists",
+			params:  []interface{}{key.Key},
 		}
-		tryCount++
+	}
 
-		if p.conn == nil {
-			err = p.Connect()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+		return nil, err
+	} else {
+		result := make([]int64, len(keyInfo))
+		for i, ele := range ret {
+			result[i] = ele.(int64)
 		}
-
-		for _, key := range keyInfo {
-			err = p.conn.Send("exists", key.Key)
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-		err = p.conn.Flush()
-		if err != nil {
-			if p.CheckHandleNetError(err) {
-				break begin
-			}
-			return nil, err
-		}
-
-		for i := 0; i < len(keyInfo); i++ {
-			reply, err := p.conn.Receive()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-			result[i] = reply.(int64)
-		}
-		break
-	} // end for {}
-	return result, nil
+		return result, nil
+	}
 }
 
-func (p *RedisClient) PipeLenCommand(keys []*common.Key) ([]int64, error) {
-	var err error
-	result := make([]int64, len(keys))
-	tryCount := 0
-begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
+func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
+	commands := make([]combine, len(keyInfo))
+	for i, key := range keyInfo {
+		commands[i] = combine{
+			command: key.Tp.FetchLenCommand,
+			params:  []interface{}{key.Key},
 		}
-		tryCount++
+	}
 
-		if p.conn == nil {
-			err = p.Connect()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
+	if ret, err := p.PipeRawCommand(commands, "WRONGTYPE"); err != nil {
+		return nil, err
+	} else {
+		result := make([]int64, len(keyInfo))
+		for i, ele := range ret {
+			result[i] = ele.(int64)
 		}
-
-		for _, key := range keys {
-			err = p.conn.Send(key.Tp.FetchLenCommand, key.Key)
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-		err = p.conn.Flush()
-		if err != nil {
-			if p.CheckHandleNetError(err) {
-				break begin
-			}
-			return nil, err
-		}
-
-		for i := 0; i < len(keys); i++ {
-			reply, err := p.conn.Receive()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				if strings.HasPrefix(err.Error(), "WRONGTYPE") {
-					result[i] = -1
-				}
-			} else {
-				result[i] = reply.(int64)
-			}
-		}
-		break
-	} // end for {}
-	return result, nil
+		return result, nil
+	}
 }
 
-func (p *RedisClient) PipeValueCommand(fetchValueKeyInfo []*common.Key) ([]interface{}, error) {
-	var err error
-	result := make([]interface{}, len(fetchValueKeyInfo))
-	tryCount := 0
-begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
+func (p *RedisClient) PipeValueCommand(keyInfo []*common.Key) ([]interface{}, error) {
+	commands := make([]combine, len(keyInfo))
+	for i, key := range keyInfo {
+		switch key.Tp {
+		case common.StringKeyType:
+			commands[i] = combine{
+				command: "get",
+				params:  []interface{}{key.Key},
+			}
+		case common.HashKeyType:
+			commands[i] = combine{
+				command: "hgetall",
+				params:  []interface{}{key.Key},
+			}
+		case common.ListKeyType:
+			commands[i] = combine{
+				command: "lrange",
+				params:  []interface{}{key.Key, "0", "-1"},
+			}
+		case common.SetKeyType:
+			commands[i] = combine{
+				command: "smembers",
+				params:  []interface{}{key.Key},
+			}
+		case common.ZsetKeyType:
+			commands[i] = combine{
+				command: "zrange",
+				params:  []interface{}{key.Key, "0", "-1", "WITHSCORES"},
+			}
+		default:
+			commands[i] = combine{
+				command: "get",
+				params:  []interface{}{key.Key},
+			}
 		}
-		tryCount++
+	}
 
-		if p.conn == nil {
-			err = p.Connect()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-
-		for _, item := range fetchValueKeyInfo {
-			switch item.Tp {
-			case common.StringKeyType:
-				err = p.conn.Send("get", item.Key)
-			case common.HashKeyType:
-				err = p.conn.Send("hgetall", item.Key)
-			case common.ListKeyType:
-				err = p.conn.Send("lrange", item.Key, 0, -1)
-			case common.SetKeyType:
-				err = p.conn.Send("smembers", item.Key)
-			case common.ZsetKeyType:
-				err = p.conn.Send("zrange", item.Key, 0, -1, "WITHSCORES")
-			default:
-				err = p.conn.Send("get", item.Key)
-			}
-
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-		err = p.conn.Flush()
-		if err != nil {
-			if p.CheckHandleNetError(err) {
-				break begin
-			}
-			return nil, err
-		}
-
-		for i := 0; i < len(fetchValueKeyInfo); i++ {
-			reply, err := p.conn.Receive()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-			result[i] = reply
-		}
-		break
-	} // end for {}
-	return result, nil
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+		return nil, err
+	} else {
+		return ret, nil
+	}
 }
 
 func (p *RedisClient) PipeSismemberCommand(key []byte, field [][]byte) ([]interface{}, error) {
-	var err error
-	result := make([]interface{}, len(field))
-	tryCount := 0
-begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
+	commands := make([]combine, len(field))
+	for i, ele := range field {
+		commands[i] = combine{
+			command: "SISMEMBER",
+			params:  []interface{}{key, ele},
 		}
-		tryCount++
+	}
 
-		if p.conn == nil {
-			err = p.Connect()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-
-		for _, item := range field {
-			err = p.conn.Send("SISMEMBER", key, item)
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-		err = p.conn.Flush()
-		if err != nil {
-			if p.CheckHandleNetError(err) {
-				break begin
-			}
-			return nil, err
-		}
-
-		for i := 0; i < len(field); i++ {
-			reply, err := p.conn.Receive()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-			result[i] = reply
-		}
-		break
-	} // end for {}
-	return result, nil
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+		return nil, err
+	} else {
+		return ret, nil
+	}
 }
 
 func (p *RedisClient) PipeZscoreCommand(key []byte, field [][]byte) ([]interface{}, error) {
-	var err error
-	result := make([]interface{}, len(field))
-	tryCount := 0
-begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
+	commands := make([]combine, len(field))
+	for i, ele := range field {
+		commands[i] = combine{
+			command: "ZSCORE",
+			params:  []interface{}{key, ele},
 		}
-		tryCount++
+	}
 
-		if p.conn == nil {
-			err = p.Connect()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-
-		for _, item := range field {
-			err = p.conn.Send("ZSCORE", key, item)
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-		}
-		err = p.conn.Flush()
-		if err != nil {
-			if p.CheckHandleNetError(err) {
-				break begin
-			}
-			return nil, err
-		}
-
-		for i := 0; i < len(field); i++ {
-			reply, err := p.conn.Receive()
-			if err != nil {
-				if p.CheckHandleNetError(err) {
-					break begin
-				}
-				return nil, err
-			}
-			result[i] = reply
-		}
-		break
-	} // end for {}
-	return result, nil
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+		return nil, err
+	} else {
+		return ret, nil
+	}
 }
 
 func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Key, onceScanCount int) (map[string][]byte, error) {

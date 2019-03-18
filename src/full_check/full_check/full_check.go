@@ -134,6 +134,7 @@ func (p *FullCheck) PrintStat(finished bool) {
 	// fmt.Fprintf(&buf, "--- key conflict ---\n")
 	for i := common.KeyTypeIndex(0); i < common.EndKeyTypeIndex; i++ {
 		for j := common.ConflictType(0); j < common.NoneConflict; j++ {
+			// fmt.Println(i, j, p.stat.ConflictKey[i][j].Total())
 			if p.stat.ConflictKey[i][j].Total() != 0 {
 				metricStat.KeyMetric[i.String()][j.String()] = p.stat.ConflictKey[i][j].Json()
 				if p.times == p.CompareCount {
@@ -274,15 +275,15 @@ func (p *FullCheck) Start() {
 		}
 		common.Logger.Infof("start %dth time compare", p.times)
 
-		for db, _ := range p.sourceDBNums {
+		for db := range p.sourceDBNums {
 			p.currentDB = db
 			p.stat.Reset()
 			// init stat timer
-			var tickerStat *time.Ticker = time.NewTicker(time.Second * common.StatRollFrequency)
+			tickerStat := time.NewTicker(time.Second * common.StatRollFrequency)
 			ctxStat, cancelStat := context.WithCancel(context.Background()) // 主动cancel
 			go func(ctx context.Context) {
 				defer tickerStat.Stop()
-				for _ = range tickerStat.C {
+				for range tickerStat.C {
 					select { // 判断是否结束
 					case <-ctx.Done():
 						return
@@ -320,24 +321,13 @@ func (p *FullCheck) Start() {
 					p.VerifyAllKeyInfo(keys, conflictKey)
 				}()
 			}
+
 			// start write conflictKey
 			wg2.Add(1)
-			if p.times == 1 {
-				go func() {
-					defer wg2.Done()
-					p.WriteConflictKey(conflictKey)
-				}()
-			} else if p.times < p.CompareCount {
-				go func() {
-					defer wg2.Done()
-					p.WriteConflictKey(conflictKey)
-				}()
-			} else {
-				go func() {
-					defer wg2.Done()
-					p.WriteConflictKey(conflictKey)
-				}()
-			}
+			go func() {
+				defer wg2.Done()
+				p.WriteConflictKey(conflictKey)
+			}()
 
 			wg.Wait()
 			close(conflictKey)

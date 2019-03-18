@@ -6,6 +6,12 @@ import (
 	"full_check/metric"
 	"full_check/client"
 	"strconv"
+	"reflect"
+	"math"
+)
+
+const(
+	StreamSegment = 5000
 )
 
 type FullValueVerifier struct {
@@ -43,7 +49,7 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 				continue
 			}
 
-			// key lack in target redis
+			// key lack in the target redis
 			if keyInfo[i].TargetAttr.ItemCount == 0 &&
 				keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount  {
 				keyInfo[i].ConflictType = common.LackTargetConflict
@@ -68,9 +74,10 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 				continue
 			}
 
-			// 太大的 hash、list、set、zset 特殊单独处理
+			// 太大的 hash、list、set、zset 特殊单独处理。
 			if keyInfo[i].Tp != common.StringKeyType &&
-				(keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold || keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold) {
+					(keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold ||
+						keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold) {
 				if p.ignoreBigKey {
 					// 如果启用忽略大key开关，则进入这个分支
 					if keyInfo[i].SourceAttr.ItemCount != keyInfo[i].TargetAttr.ItemCount {
@@ -101,9 +108,18 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 					p.Compare_Hash_Set_SortedSet(keyInfo[i], conflictKey, sourceValue, targetValue)
 				case common.ListKeyType:
 					p.CheckFullBigValue_List(keyInfo[i], conflictKey, sourceClient, targetClient)
+				case common.StreamKeyType:
+					p.CompareStream(keyInfo[i], conflictKey, sourceClient, targetClient)
 				}
 				continue
 			}
+
+			// special handle for stream type
+			if keyInfo[i].Tp == common.StreamKeyType {
+				p.CompareStream(keyInfo[i], conflictKey, sourceClient, targetClient)
+				continue
+			}
+
 			// 剩下的都进入 fullCheckFetchAllKeyInfo(), pipeline + 一次性取全量数据的方式比较value
 			fullCheckFetchAllKeyInfo = append(fullCheckFetchAllKeyInfo, keyInfo[i])
 
@@ -143,7 +159,8 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 				case common.StringKeyType:
 					fullCheckFetchAllKeyInfo = append(fullCheckFetchAllKeyInfo, keyInfo[i])
 				case common.ListKeyType:
-					if keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold || keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold {
+					if keyInfo[i].SourceAttr.ItemCount > common.BigKeyThreshold ||
+							keyInfo[i].TargetAttr.ItemCount > common.BigKeyThreshold {
 						p.CheckFullBigValue_List(keyInfo[i], conflictKey, sourceClient, targetClient)
 					} else {
 						fullCheckFetchAllKeyInfo = append(fullCheckFetchAllKeyInfo, keyInfo[i])
@@ -155,6 +172,8 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 					p.CheckPartialValueSet(keyInfo[i], conflictKey, sourceClient, targetClient)
 				case common.ZsetKeyType:
 					p.CheckPartialValueSortedSet(keyInfo[i], conflictKey, sourceClient, targetClient)
+				case common.StreamKeyType:
+					p.CompareStream(keyInfo[i], conflictKey, sourceClient, targetClient)
 				}
 				continue
 			}
@@ -170,7 +189,8 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 
 }
 
-func (p *FullValueVerifier) CheckFullValueFetchAll(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *client.RedisClient, targetClient *client.RedisClient) {
+func (p *FullValueVerifier) CheckFullValueFetchAll(keyInfo []*common.Key, conflictKey chan<- *common.Key,
+		sourceClient, targetClient *client.RedisClient) {
 	// fetch value
 	sourceReply, err := sourceClient.PipeValueCommand(keyInfo)
 	if err != nil {
@@ -303,7 +323,8 @@ func (p *FullValueVerifier) CheckPartialValueSortedSet(oneKeyInfo *common.Key, c
 	p.Compare_Hash_Set_SortedSet(oneKeyInfo, conflictKey, sourceValue, targetValue)
 }
 
-func (p *FullValueVerifier) CheckFullBigValue_List(oneKeyInfo *common.Key, conflictKey chan<- *common.Key, sourceClient *client.RedisClient, targetClient *client.RedisClient) {
+func (p *FullValueVerifier) CheckFullBigValue_List(oneKeyInfo *common.Key, conflictKey chan<- *common.Key,
+		sourceClient *client.RedisClient, targetClient *client.RedisClient) {
 	conflictField := make([]common.Field, 0, oneKeyInfo.SourceAttr.ItemCount/100+1)
 	oneCmpCount := p.Param.BatchCount * 10
 	if oneCmpCount > 10240 {
@@ -439,4 +460,142 @@ func (p *FullValueVerifier) Compare_List(oneKeyInfo *common.Key, conflictKey cha
 		}
 	}
 	p.IncrKeyStat(oneKeyInfo)
+}
+
+/*
+ * In this function, I separate comparison into the following steps:
+ * 1. compare groups info(`xinfo groups ${stream_name}`)
+ * 2. compare all elements in stream(`xrange ${stream_name} - + count ${number}`)
+ * 3. compare all elements in PEL(`xpending ${stream_name} ${group} - + ${number}`)
+ */
+func (p *FullValueVerifier) CompareStream(oneKeyInfo *common.Key, conflictKey chan<- *common.Key,
+		sourceClient, targetClient *client.RedisClient) {
+	// 1. fetch source and target groups info
+	sourceGroupsInfo, err := sourceClient.Do("XINFO", "GROUPS", oneKeyInfo.Key)
+	if err != nil {
+		panic(common.Logger.Error(err))
+	}
+
+	targetGroupsInfo, err := targetClient.Do("XINFO", "GROUPS", oneKeyInfo.Key)
+	if err != nil {
+		panic(common.Logger.Error(err))
+	}
+
+	if reflect.DeepEqual(sourceGroupsInfo, targetGroupsInfo) == false {
+		oneKeyInfo.ConflictType = common.ValueConflict
+		p.IncrKeyStat(oneKeyInfo)
+		conflictKey <- oneKeyInfo
+		return
+	}
+
+	// get groups and pending length which will be used in step 3
+	type groupOutline struct {
+		name          string
+		pendingLength int64
+	}
+	groupsBasic := make([]groupOutline, 0, len(sourceGroupsInfo.([]interface{})))
+	for _, ele := range sourceGroupsInfo.([]interface{}) {
+		line := ele.([]interface{})
+		/*
+		 * 1) 1) "name"
+		 *	   2) "cg1"
+		 *	   3) "consumers"
+		 *	   4) (integer) 2
+		 *	   5) "pending"
+		 *	   6) (integer) 7
+		 *	   7) "last-delivered-id"
+		 *	   8) "1552541825298-0"
+		 */
+		groupsBasic = append(groupsBasic, groupOutline{
+			name:          string(line[1].([]byte)),
+			pendingLength: line[5].(int64),
+		})
+		// fmt.Println(groupsBasic[len(groupsBasic) - 1].name, groupsBasic[len(groupsBasic) - 1].pendingLength)
+	}
+
+	// 2. compare all elements in stream
+	length := oneKeyInfo.SourceAttr.ItemCount
+	step := int64(math.Max(float64(StreamSegment), float64(length) / 20))
+	for sum, startTs := int64(0), "0-0"; sum < length; sum += step {
+		// fetch all elements in stream
+		// 1. from source
+		sourceXrange, err := sourceClient.Do("XRANGE", oneKeyInfo.Key, startTs, "+", "COUNT", step)
+		if err != nil {
+			panic(common.Logger.Error(err))
+		}
+
+		// 2. from target
+		targetXrange, err := targetClient.Do("XRANGE", oneKeyInfo.Key, startTs, "+", "COUNT", step)
+		if err != nil {
+			panic(common.Logger.Error(err))
+		}
+
+		// 3. deep comparison
+		if reflect.DeepEqual(sourceXrange, targetXrange) == false {
+			oneKeyInfo.ConflictType = common.ValueConflict
+			p.IncrKeyStat(oneKeyInfo)
+			conflictKey <- oneKeyInfo
+			return
+		}
+
+		// 4. get last ts in this batch
+		length := len(sourceXrange.([]interface{}))
+		if length > 0 {
+			last := sourceXrange.([]interface{})[length-1]
+			lastTs := last.([]interface{})[0].([]byte)
+			startTs = string(lastTs)
+		}
+	}
+
+	// 3. compare all elements in PEL
+	for _, groupEle := range groupsBasic {
+		step := int64(math.Max(float64(StreamSegment), float64(length) / 20))
+		for sum, startTs := int64(0), "0-0"; sum < length; sum += step {
+			sourceXpending, err := sourceClient.Do("XPENDING", oneKeyInfo.Key, groupEle.name, startTs,
+				"+", step)
+			if err != nil {
+				panic(common.Logger.Error(err))
+			}
+
+			targetXpending, err := targetClient.Do("XPENDING", oneKeyInfo.Key, groupEle.name, startTs,
+				"+", step)
+			if err != nil {
+				panic(common.Logger.Error(err))
+			}
+
+			sourceXpendingArray := sourceXpending.([]interface{})
+			targetXpendingArray := targetXpending.([]interface{})
+
+			if len(sourceXpendingArray) != len(targetXpendingArray) {
+				oneKeyInfo.ConflictType = common.ValueConflict
+				conflictKey <- oneKeyInfo
+				return
+			}
+
+			// fmt.Println("aa ", len(sourceXpendingArray), len(targetXpendingArray))
+
+			for i := 0; i < len(sourceXpendingArray); i++ {
+				// only compare timestamp and consumer
+				/*
+				 * 1) 1) "1552541673724-0"
+				 *		2) "Bob"
+				 *		3) (integer) 349116818
+				 *		4) (integer) 1
+				 */
+				s := sourceXpendingArray[i].([]interface{})
+				t := targetXpendingArray[i].([]interface{})
+				if reflect.DeepEqual(s[0], t[0]) == false || reflect.DeepEqual(s[1], t[1]) == false {
+					oneKeyInfo.ConflictType = common.ValueConflict
+					p.IncrKeyStat(oneKeyInfo)
+					conflictKey <- oneKeyInfo
+					return
+				}
+			}
+
+			// set last-ts
+			last := sourceXpendingArray[len(sourceXpendingArray) - 1]
+			lastTs := last.([]interface{})[0].([]byte)
+			startTs = string(lastTs)
+		}
+	}
 }
