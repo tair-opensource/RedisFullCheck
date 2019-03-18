@@ -1,5 +1,17 @@
 package common
 
+import "github.com/cihub/seelog"
+
+const (
+	MaxRetryCount     = 20 // client attribute
+	StatRollFrequency = 2  // client attribute
+)
+
+var (
+	BigKeyThreshold int64 = 16384
+	Logger seelog.LoggerInterface
+)
+
 /*
  * @Vinllen Chen. check filter hit the key.
  * return: true/false. true means pass.

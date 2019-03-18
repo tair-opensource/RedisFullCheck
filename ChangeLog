@@ -1,6 +1,14 @@
+2019-03-14 Alibaba Cloud.
+	* VERSION: 1.2.0
+	* FEATURE: polish code structure and support 5.0 stream. Different 
+	comparemodes in stream type have different result: comparemode=1,
+	compare full value including stream list(`xrange`) and groups info(`xinfo groups`
+	and `xpending`); comparemode=2, only compare stream list length; comparemode=3,
+	only compare key existence; comparemode=4, switch from comparemode=1 to
+	comparemode=2 when current key is a big key(exceed the `bigkeythreshold`).
 2019-03-07 Alibaba Cloud.
 	* VERSION: 1.0.5
-	* BUGFIX: all keys are filtered when input filter is empty.
+	* BUGFIX: all keys are filtered when input filter is empty, bug from v1.0.3.
 2019-03-04 Alibaba Cloud.
 	* VERSION: 1.0.4
 	* BUGFIX: divisor is zero when parallel is big
