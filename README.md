@@ -70,6 +70,8 @@ Help Options:
 
 # Usage
 ---
+Run `./bin/redis-shake.darwin64` or `redis-shake.linux64` which is built in OSX and Linux respectively.<br>
+Or you can build redis-shake yourself according to the following steps:<br>
 *  git clone https://github.com/aliyun/redis-full-check.git
 *  cd redis-full-check/src/vendor
 *  GOPATH=\`pwd\`/../..; govendor sync     #please note: must install govendor first and then pull all dependencies
