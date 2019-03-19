@@ -10,8 +10,8 @@ Redis-full-check performs full data verification by comparing the data of the so
 ![dataflow.png](https://github.com/aliyun/redis-full-check/blob/master/resources/dataflow.png)<br>
 Redis-full-check fetches keys from source and then checks these keys exist on the target. So if one key exists on the target but lack on the source, redis-full-check can't find it. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link: <br>
 
-* source->redis-full-check->target
-* target->redis-full-check->source
+* source->RedisFullCheck->target
+* target->RedisFullCheck->source
 
 # Code branch rules
 Version rules: a.b.c.<br>
