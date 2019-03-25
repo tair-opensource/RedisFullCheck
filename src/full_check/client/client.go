@@ -244,7 +244,6 @@ func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) 
 		if err != emptyError {
 			return nil, err
 		}
-		return nil, nil
 	} else {
 		for i, ele := range ret {
 			result[i] = ele.(int64)
@@ -267,7 +266,6 @@ func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
 		if err != emptyError {
 			return nil, err
 		}
-		return nil, nil
 	} else {
 		for i, ele := range ret {
 			result[i] = ele.(int64)
