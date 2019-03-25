@@ -1,3 +1,6 @@
+2019-03-25 Alibaba Cloud.
+	* VERSION: 1.2.1
+	* BUGFIX: input commands is 0 in `PipeRawCommand`.
 2019-03-14 Alibaba Cloud.
 	* VERSION: 1.2.0
 	* FEATURE: polish code structure and support 5.0 stream. Different 

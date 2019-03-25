@@ -34,7 +34,9 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 			noTypeKeyInfo = append(noTypeKeyInfo, keyInfo[i])
 		}
 	}
-	p.FetchTypeAndLen(noTypeKeyInfo, sourceClient, targetClient)
+	if len(noTypeKeyInfo) != 0 {
+		p.FetchTypeAndLen(noTypeKeyInfo, sourceClient, targetClient)
+	}
 
 	// compare, filter
 	fullCheckFetchAllKeyInfo := make([]*common.Key, 0, len(keyInfo))
