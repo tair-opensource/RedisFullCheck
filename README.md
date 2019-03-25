@@ -10,8 +10,8 @@ Redis-full-check performs full data verification by comparing the data of the so
 ![dataflow.png](https://github.com/aliyun/redis-full-check/blob/master/resources/dataflow.png)<br>
 Redis-full-check fetches keys from source and then checks these keys exist on the target. So if one key exists on the target but lack on the source, redis-full-check can't find it. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link: <br>
 
-* source->redis-full-check->target
-* target->redis-full-check->source
+* source->RedisFullCheck->target
+* target->RedisFullCheck->source
 
 # Code branch rules
 Version rules: a.b.c.<br>
@@ -104,8 +104,8 @@ id          field       conflict_type  key_id
 ---
 We also provide some tools for synchronization in Shake series.<br>
 
-* [mongo-shake](https://github.com/aliyun/mongo-shake): mongodb data synchronization tool. 
-* [redis-shake](https://github.com/aliyun/redis-shake): redis data synchronization tool. 
-* [redis-full-check](https://github.com/aliyun/redis-full-check): redis data synchronization verification tool. 
+* [MongoShake](https://github.com/aliyun/MongoShake): mongodb data synchronization tool.
+* [RedisShake](https://github.com/aliyun/RedisShake): redis data synchronization tool.
+* [RedisFullCheck](https://github.com/aliyun/RedisFullCheck): redis data synchronization verification tool.
 
 Plus, we have a WeChat group so that users can join and discuss, but the group user number is limited. So please add my WeChat number: `vinllen_xingge` first, and I will add you to this group.<br>

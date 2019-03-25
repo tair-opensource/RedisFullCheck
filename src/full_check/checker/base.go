@@ -31,7 +31,7 @@ func (p *VerifierBase) IncrFieldStat(oneKeyInfo *common.Key, conType common.Conf
 	p.Stat.ConflictField[oneKeyInfo.Tp.Index][conType].Inc(1)
 }
 
-func (p *VerifierBase) FetchTypeAndLen(keyInfo []*common.Key, sourceClient *client.RedisClient, targetClient *client.RedisClient) {
+func (p *VerifierBase) FetchTypeAndLen(keyInfo []*common.Key, sourceClient, targetClient *client.RedisClient) {
 	// fetch type
 	sourceKeyTypeStr, err := sourceClient.PipeTypeCommand(keyInfo)
 	if err != nil {

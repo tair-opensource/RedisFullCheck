@@ -2,13 +2,20 @@ package client
 
 import (
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+	"errors"
+
 	"full_check/common"
+
+	"github.com/garyburd/redigo/redis"
+)
+
+var (
+	emptyError = errors.New("empty")
 )
 
 type RedisHost struct {
@@ -141,7 +148,8 @@ type combine struct {
 
 func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix string) ([]interface{}, error) {
 	if len(commands) == 0 {
-		return nil, fmt.Errorf("invalid input commands length[%v]", len(commands))
+		common.Logger.Warnf("input commands length is 0")
+		return nil, emptyError
 	}
 
 	result := make([]interface{}, len(commands))
@@ -209,15 +217,17 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 		}
 	}
 
+	result := make([]string, len(keyInfo))
 	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
-		return nil, err
+		if err != emptyError {
+			return nil, err
+		}
 	} else {
-		result := make([]string, len(keyInfo))
 		for i, ele := range ret {
 			result[i] = ele.(string)
 		}
-		return result, nil
 	}
+	return result, nil
 }
 
 func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) {
@@ -229,15 +239,18 @@ func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) 
 		}
 	}
 
+	result := make([]int64, len(keyInfo))
 	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
-		return nil, err
+		if err != emptyError {
+			return nil, err
+		}
+		return nil, nil
 	} else {
-		result := make([]int64, len(keyInfo))
 		for i, ele := range ret {
 			result[i] = ele.(int64)
 		}
-		return result, nil
 	}
+	return result, nil
 }
 
 func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
@@ -249,15 +262,18 @@ func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
 		}
 	}
 
+	result := make([]int64, len(keyInfo))
 	if ret, err := p.PipeRawCommand(commands, "WRONGTYPE"); err != nil {
-		return nil, err
+		if err != emptyError {
+			return nil, err
+		}
+		return nil, nil
 	} else {
-		result := make([]int64, len(keyInfo))
 		for i, ele := range ret {
 			result[i] = ele.(int64)
 		}
-		return result, nil
 	}
+	return result, nil
 }
 
 func (p *RedisClient) PipeValueCommand(keyInfo []*common.Key) ([]interface{}, error) {
@@ -297,7 +313,7 @@ func (p *RedisClient) PipeValueCommand(keyInfo []*common.Key) ([]interface{}, er
 		}
 	}
 
-	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil && err != emptyError {
 		return nil, err
 	} else {
 		return ret, nil
@@ -313,7 +329,7 @@ func (p *RedisClient) PipeSismemberCommand(key []byte, field [][]byte) ([]interf
 		}
 	}
 
-	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil && err != emptyError {
 		return nil, err
 	} else {
 		return ret, nil
@@ -329,7 +345,7 @@ func (p *RedisClient) PipeZscoreCommand(key []byte, field [][]byte) ([]interface
 		}
 	}
 
-	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil && err != emptyError {
 		return nil, err
 	} else {
 		return ret, nil
