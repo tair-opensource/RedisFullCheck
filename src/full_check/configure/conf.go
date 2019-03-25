@@ -19,7 +19,7 @@ var Opts struct {
 	Parallel        int    `long:"parallel" value-name:"COUNT" default:"5" description:"concurrent goroutine number for comparison, valid value [1, 100]"`
 	LogFile         string `long:"log" value-name:"FILE" description:"log file, if not specified, log is put to console"`
 	ResultFile      string `long:"result" value-name:"FILE" description:"store all diff result, format is 'db\tdiff-type\tkey\tfield'"`
-	MetricFile      string `long:"metric" value-name:"FILE" description:"metrics file"`
+	MetricPrint     bool   `long:"metric" value-name:"BOOL" description:"print metric in log"`
 	BigKeyThreshold int64  `long:"bigkeythreshold" value-name:"COUNT" default:"16384"`
 	FilterList      string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
 	Version         bool   `short:"v" long:"version"`

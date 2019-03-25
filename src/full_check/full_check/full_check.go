@@ -178,12 +178,9 @@ func (p *FullCheck) PrintStat(finished bool) {
 	}
 
 	p.totalConflict = p.totalKeyConflict + p.totalFieldConflict
-	if len(conf.Opts.MetricFile) > 0 {
-		metricsfile, _ := os.OpenFile(conf.Opts.MetricFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-		defer metricsfile.Close()
-
+	if conf.Opts.MetricPrint {
 		metricstr, _ := json.Marshal(metricStat)
-		metricsfile.WriteString(fmt.Sprintf("%s\n", string(metricstr)))
+		common.Logger.Info(string(metricstr))
 
 		if p.times == p.CompareCount && finished {
 			metricStat.AllFinished = true
@@ -193,7 +190,7 @@ func (p *FullCheck) PrintStat(finished bool) {
 			metricStat.TotalFieldConflict = p.totalFieldConflict
 
 			metricstr, _ := json.Marshal(metricStat)
-			metricsfile.WriteString(fmt.Sprintf("%s\n", string(metricstr)))
+			common.Logger.Info(string(metricstr))
 		}
 	} else {
 		common.Logger.Infof("stat:\n%s", string(buf.Bytes()))
@@ -205,10 +202,6 @@ func (p *FullCheck) IncrScanStat(a int) {
 }
 
 func (p *FullCheck) Start() {
-	if len(conf.Opts.MetricFile) > 0 {
-		os.Remove(conf.Opts.MetricFile)
-	}
-
 	var err error
 
 	for i := 1; i <= p.CompareCount; i++ {
