@@ -274,6 +274,28 @@ func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
 	return result, nil
 }
 
+func (p *RedisClient) PipeTTLCommand(keyInfo []*common.Key) ([]bool, error) {
+	commands := make([]combine, len(keyInfo))
+	for i, key := range keyInfo {
+		commands[i] = combine{
+			command: "ttl",
+			params:  []interface{}{key.Key},
+		}
+	}
+
+	result := make([]bool, len(keyInfo))
+	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
+		if err != emptyError {
+			return nil, err
+		}
+	} else {
+		for i, ele := range ret {
+			result[i] = ele.(int64) == 0
+		}
+	}
+	return result, nil
+}
+
 func (p *RedisClient) PipeValueCommand(keyInfo []*common.Key) ([]interface{}, error) {
 	commands := make([]combine, len(keyInfo))
 	for i, key := range keyInfo {

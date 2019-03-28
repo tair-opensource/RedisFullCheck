@@ -38,6 +38,9 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 		p.FetchTypeAndLen(noTypeKeyInfo, sourceClient, targetClient)
 	}
 
+	// re-check ttl on the source side when key missing on the target side
+	p.RecheckTTL(keyInfo, sourceClient)
+
 	// compare, filter
 	fullCheckFetchAllKeyInfo := make([]*common.Key, 0, len(keyInfo))
 	retryNewVerifyKeyInfo := make([]*common.Key, 0, len(keyInfo))
@@ -52,12 +55,16 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 			}
 
 			// key lack in the target redis
-			if keyInfo[i].TargetAttr.ItemCount == 0 &&
-				keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount  {
-				keyInfo[i].ConflictType = common.LackTargetConflict
-				p.IncrKeyStat(keyInfo[i])
-				conflictKey <- keyInfo[i]
-				continue
+			if keyInfo[i].TargetAttr.ItemCount == 0 {
+				if keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount {
+					keyInfo[i].ConflictType = common.LackTargetConflict
+					p.IncrKeyStat(keyInfo[i])
+					conflictKey <- keyInfo[i]
+					continue
+				} else if keyInfo[i].SourceAttr.ItemCount == 0 {
+					// no need to check anymore
+					continue
+				}
 			}
 
 			// type mismatch, ItemCount == -1，表明key在target redis上的type与source不同

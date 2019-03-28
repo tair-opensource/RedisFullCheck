@@ -48,10 +48,14 @@ func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*common.Key, sourceClient *clie
 func (p *KeyOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *client.RedisClient, targetClient *client.RedisClient) {
 	p.FetchKeys(keyInfo, sourceClient, targetClient)
 
+	// re-check ttl on the source side when key missing on the target side
+	p.RecheckTTL(keyInfo, sourceClient)
+
 	// compare, filter
 	for i := 0; i < len(keyInfo); i++ {
 		// key lack in target redis
-		if keyInfo[i].TargetAttr.ItemCount == 0 {
+		if keyInfo[i].TargetAttr.ItemCount == 0 &&
+				keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount {
 			keyInfo[i].ConflictType = common.LackTargetConflict
 			p.IncrKeyStat(keyInfo[i])
 			conflictKey <- keyInfo[i]
