@@ -70,6 +70,30 @@ func (p *VerifierBase) FetchTypeAndLen(keyInfo []*common.Key, sourceClient, targ
 	wg.Wait()
 }
 
+func (p *VerifierBase) RecheckTTL(keyInfo []*common.Key, client *client.RedisClient) {
+	reCheckKeys := make([]*common.Key, 0, len(keyInfo))
+	for _, key := range keyInfo {
+		if key.TargetAttr.ItemCount == 0 && key.SourceAttr.ItemCount > 0 {
+			reCheckKeys = append(reCheckKeys, key)
+		}
+	}
+	if len(reCheckKeys) != 0 {
+		p.recheckTTL(reCheckKeys, client)
+	}
+}
+
+func (p *VerifierBase) recheckTTL(keyInfo []*common.Key, client *client.RedisClient) {
+	keyExpire, err := client.PipeTTLCommand(keyInfo)
+	if err != nil {
+		panic(common.Logger.Critical(err))
+	}
+	for i, expire := range keyExpire {
+		if expire {
+			keyInfo[i].SourceAttr.ItemCount = 0
+		}
+	}
+}
+
 type IVerifier interface {
 	VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflictKey chan<- *common.Key, sourceClient *client.RedisClient,
 		targetClient *client.RedisClient)

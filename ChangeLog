@@ -1,3 +1,8 @@
+2019-03-28 Alibaba Cloud.
+	* VERSION: 1.2.2
+	* BUGFIX: set length to 0 when key is expired on the source, this is used
+	to fix the bug when source side is slave and keys doesn't be delete when
+	expired.
 2019-03-25 Alibaba Cloud.
 	* VERSION: 1.2.1
 	* BUGFIX: input commands is 0 in `PipeRawCommand`.
