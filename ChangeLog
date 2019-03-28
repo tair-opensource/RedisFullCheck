@@ -1,6 +1,6 @@
 2019-03-28 Alibaba Cloud.
 	* VERSION: 1.2.2
-	* IMPROVE: set length to 0 when key is expired on the source, this is used
+	* BUGFIX: set length to 0 when key is expired on the source, this is used
 	to fix the bug when source side is slave and keys doesn't be delete when
 	expired.
 2019-03-25 Alibaba Cloud.
