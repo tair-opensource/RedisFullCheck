@@ -181,6 +181,7 @@ func (p *FullCheck) PrintStat(finished bool) {
 	if conf.Opts.MetricPrint {
 		metricstr, _ := json.Marshal(metricStat)
 		common.Logger.Info(string(metricstr))
+		// fmt.Println(string(metricstr))
 
 		if p.times == p.CompareCount && finished {
 			metricStat.AllFinished = true
@@ -191,6 +192,7 @@ func (p *FullCheck) PrintStat(finished bool) {
 
 			metricstr, _ := json.Marshal(metricStat)
 			common.Logger.Info(string(metricstr))
+			// fmt.Println(string(metricstr))
 		}
 	} else {
 		common.Logger.Infof("stat:\n%s", string(buf.Bytes()))
@@ -581,45 +583,6 @@ func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*common.Key, conflictKey c
 		}
 
 	} // for oneGroupKeys := range allKeys
-}
-
-func (p *FullCheck) FetchTypeAndLen(keyInfo []*common.Key, sourceClient *client.RedisClient, targetClient *client.RedisClient) {
-	// fetch type
-	sourceKeyTypeStr, err := sourceClient.PipeTypeCommand(keyInfo)
-	if err != nil {
-		panic(common.Logger.Critical(err))
-	}
-	for i, t := range sourceKeyTypeStr {
-		keyInfo[i].Tp = common.NewKeyType(t)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	// fetch len
-	go func() {
-		sourceKeyLen, err := sourceClient.PipeLenCommand(keyInfo)
-		if err != nil {
-			panic(common.Logger.Critical(err))
-		}
-		for i, keylen := range sourceKeyLen {
-			keyInfo[i].SourceAttr.ItemCount = keylen
-		}
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	go func() {
-		targetKeyLen, err := targetClient.PipeLenCommand(keyInfo)
-		if err != nil {
-			panic(common.Logger.Critical(err))
-		}
-		for i, keylen := range targetKeyLen {
-			keyInfo[i].TargetAttr.ItemCount = keylen
-		}
-		wg.Done()
-	}()
-
-	wg.Wait()
 }
 
 func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
