@@ -103,7 +103,6 @@ func (p *RedisClient) Do(commandName string, args ...interface{}) (interface{}, 
 	var err error
 	var result interface{}
 	tryCount := 0
-begin:
 	for {
 		if tryCount > MaxRetryCount {
 			return nil, err
@@ -114,7 +113,7 @@ begin:
 			err = p.Connect()
 			if err != nil {
 				if p.CheckHandleNetError(err) {
-					break begin
+					continue
 				}
 				return nil, err
 			}
@@ -123,7 +122,7 @@ begin:
 		result, err = p.conn.Do(commandName, args...)
 		if err != nil {
 			if p.CheckHandleNetError(err) {
-				break begin
+				continue
 			}
 			return nil, err
 		}
