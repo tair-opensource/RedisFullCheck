@@ -197,7 +197,10 @@ begin:
 				}
 				// 此处处理不太好，但是别人代码写死了，我只能这么改了
 				if strings.HasPrefix(err.Error(), specialErrorPrefix) {
-					result[i] = -1
+					// this error means the type between initial 'scan' and the following round comparison
+					// is different. we should marks this.
+					result[i] = common.TypeChanged
+					continue
 				}
 				return nil, err
 			}

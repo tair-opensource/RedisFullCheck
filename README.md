@@ -72,15 +72,15 @@ Help Options:
 ---
 Run `./bin/redis-shake.darwin64` or `redis-shake.linux64` which is built in OSX and Linux respectively.<br>
 Or you can build redis-shake yourself according to the following steps:<br>
-*  git clone https://github.com/aliyun/redis-full-check.git
-*  cd redis-full-check/src/vendor
+*  git clone https://github.com/alibaba/RedisFullCheck.git
+*  cd RedisFullCheck/src/vendor
 *  GOPATH=\`pwd\`/../..; govendor sync     #please note: must install govendor first and then pull all dependencies
 *  cd ../../ && ./build.sh
 *  ./redis-full-check -s $(source_redis_ip_port) -p $(source_password) -t $(target_redis_ip_port) -a $(target_password) # these parameters should be given by users
 
 Here comes the sqlite3 example to display the conflict result:<br>
 ```
-$ sqlite3 result.db.3  # result.db.x shows the x-round comparison conflict result.
+$ sqlite3 result.db.3  # result.db.x shows the x-round comparison conflict result. len == -1 means inconsistent key type.
 
 sqlite> select * from key;
 id          key              type        conflict_type  db          source_len  target_len

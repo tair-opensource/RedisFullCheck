@@ -53,6 +53,11 @@ func (p *KeyOutlineVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, confli
 
 	// compare, filter
 	for i := 0; i < len(keyInfo); i++ {
+		// 在fetch type和之后的轮次扫描之间源端类型更改，不处理这种错误
+		if keyInfo[i].SourceAttr.ItemCount == common.TypeChanged {
+			continue
+		}
+
 		// key lack in target redis
 		if keyInfo[i].TargetAttr.ItemCount == 0 &&
 				keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount {
