@@ -39,6 +39,7 @@ func (p *VerifierBase) FetchTypeAndLen(keyInfo []*common.Key, sourceClient, targ
 	}
 	for i, t := range sourceKeyTypeStr {
 		keyInfo[i].Tp = common.NewKeyType(t)
+		// fmt.Printf("key:%v, type:%v cmd:%v\n", string(keyInfo[i].Key), t, keyInfo[i].Tp.FetchLenCommand)
 	}
 
 	var wg sync.WaitGroup

@@ -5,6 +5,8 @@ import "github.com/cihub/seelog"
 const (
 	MaxRetryCount     = 20 // client attribute
 	StatRollFrequency = 2  // client attribute
+
+	TypeChanged int64 = -1 // marks the given key type is change, e.g. from string to list
 )
 
 var (

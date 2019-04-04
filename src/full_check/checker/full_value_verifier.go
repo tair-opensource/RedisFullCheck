@@ -54,6 +54,11 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 				continue
 			}
 
+			// 在fetch type和之后的轮次扫描之间源端类型更改，不处理这种错误
+			if keyInfo[i].SourceAttr.ItemCount == common.TypeChanged {
+				continue
+			}
+
 			// key lack in the target redis
 			if keyInfo[i].TargetAttr.ItemCount == 0 {
 				if keyInfo[i].TargetAttr.ItemCount != keyInfo[i].SourceAttr.ItemCount {
@@ -68,7 +73,7 @@ func (p *FullValueVerifier) VerifyOneGroupKeyInfo(keyInfo []*common.Key, conflic
 			}
 
 			// type mismatch, ItemCount == -1，表明key在target redis上的type与source不同
-			if keyInfo[i].TargetAttr.ItemCount == -1 {
+			if keyInfo[i].TargetAttr.ItemCount == common.TypeChanged {
 				keyInfo[i].ConflictType = common.TypeConflict
 				p.IncrKeyStat(keyInfo[i])
 				conflictKey <- keyInfo[i]
