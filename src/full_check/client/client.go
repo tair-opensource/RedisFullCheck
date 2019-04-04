@@ -104,19 +104,12 @@ func (p *RedisClient) Connect() error {
 func (p *RedisClient) Do(commandName string, args ...interface{}) (interface{}, error) {
 	var err error
 	var result interface{}
-	tryCount := 0
-begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
-		}
-		tryCount++
-
+	for tryCount := 0; tryCount < common.MaxRetryCount; tryCount++ {
 		if p.conn == nil {
 			err = p.Connect()
 			if err != nil {
 				if p.CheckHandleNetError(err) {
-					break begin
+					continue
 				}
 				return nil, err
 			}
@@ -125,7 +118,7 @@ begin:
 		result, err = p.conn.Do(commandName, args...)
 		if err != nil {
 			if p.CheckHandleNetError(err) {
-				break begin
+				continue
 			}
 			return nil, err
 		}
@@ -154,19 +147,13 @@ func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix stri
 
 	result := make([]interface{}, len(commands))
 	var err error
-	tryCount := 0
 begin:
-	for {
-		if tryCount > common.MaxRetryCount {
-			return nil, err
-		}
-		tryCount++
-
+	for tryCount := 0; tryCount < common.MaxRetryCount; tryCount++ {
 		if p.conn == nil {
 			err = p.Connect()
 			if err != nil {
 				if p.CheckHandleNetError(err) {
-					break begin
+					continue
 				}
 				return nil, err
 			}
@@ -176,7 +163,7 @@ begin:
 			err = p.conn.Send(ele.command, ele.params...)
 			if err != nil {
 				if p.CheckHandleNetError(err) {
-					break begin
+					continue begin
 				}
 				return nil, err
 			}
@@ -184,7 +171,7 @@ begin:
 		err = p.conn.Flush()
 		if err != nil {
 			if p.CheckHandleNetError(err) {
-				break begin
+				continue
 			}
 			return nil, err
 		}
@@ -193,11 +180,14 @@ begin:
 			reply, err := p.conn.Receive()
 			if err != nil {
 				if p.CheckHandleNetError(err) {
-					break begin
+					continue begin
 				}
 				// 此处处理不太好，但是别人代码写死了，我只能这么改了
 				if strings.HasPrefix(err.Error(), specialErrorPrefix) {
-					result[i] = -1
+					// this error means the type between initial 'scan' and the following round comparison
+					// is different. we should marks this.
+					result[i] = common.TypeChanged
+					continue
 				}
 				return nil, err
 			}

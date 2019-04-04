@@ -70,7 +70,7 @@ Help Options:
 
 # Usage
 ---
-Run `./bin/redis-full-check.darwin64` or `redis-full-check.linux64` which is built in OSX and Linux respectively.<br>
+Run `./bin/redis-full-check.darwin64` or `redis-full-check.linux64` which is built in OSX and Linux respectively, however, the binaries aren't always the newest version.<br>
 Or you can build redis-full-check yourself according to the following steps:<br>
 *  git clone https://github.com/alibaba/RedisFullCheck.git
 *  cd RedisFullCheck/src/vendor
@@ -80,7 +80,7 @@ Or you can build redis-full-check yourself according to the following steps:<br>
 
 Here comes the sqlite3 example to display the conflict result:<br>
 ```
-$ sqlite3 result.db.3  # result.db.x shows the x-round comparison conflict result.
+$ sqlite3 result.db.3  # result.db.x shows the x-round comparison conflict result. len == -1 means inconsistent key type.
 
 sqlite> select * from key;
 id          key              type        conflict_type  db          source_len  target_len
