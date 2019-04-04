@@ -72,8 +72,8 @@ Help Options:
 ---
 Run `./bin/redis-full-check.darwin64` or `redis-full-check.linux64` which is built in OSX and Linux respectively.<br>
 Or you can build redis-full-check yourself according to the following steps:<br>
-*  git clone https://github.com/aliyun/redis-full-check.git
-*  cd redis-full-check/src/vendor
+*  git clone https://github.com/alibaba/RedisFullCheck.git
+*  cd RedisFullCheck/src/vendor
 *  GOPATH=\`pwd\`/../..; govendor sync     #please note: must install govendor first and then pull all dependencies
 *  cd ../../ && ./build.sh
 *  ./redis-full-check -s $(source_redis_ip_port) -p $(source_password) -t $(target_redis_ip_port) -a $(target_password) # these parameters should be given by users
