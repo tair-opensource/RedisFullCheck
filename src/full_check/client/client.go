@@ -104,7 +104,7 @@ func (p *RedisClient) Connect() error {
 func (p *RedisClient) Do(commandName string, args ...interface{}) (interface{}, error) {
 	var err error
 	var result interface{}
-	for tryCount := 0; tryCount <= common.MaxRetryCount; tryCount++ {
+	for tryCount := 0; tryCount < common.MaxRetryCount; tryCount++ {
 		if p.conn == nil {
 			err = p.Connect()
 			if err != nil {
@@ -148,7 +148,7 @@ func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix stri
 	result := make([]interface{}, len(commands))
 	var err error
 begin:
-	for tryCount := 0; tryCount <= common.MaxRetryCount; tryCount++ {
+	for tryCount := 0; tryCount < common.MaxRetryCount; tryCount++ {
 		if p.conn == nil {
 			err = p.Connect()
 			if err != nil {
