@@ -2,6 +2,8 @@
 	* VERSION: 1.2.3
 	* BUGFIX: ignore key when type changed between run `scan` and the
 	following comparison.
+	* BUGFIX: retry when connection meets net error.
+	* THANKS: fengweiyuan
 2019-03-28 Alibaba Cloud.
 	* VERSION: 1.2.2
 	* BUGFIX: set length to 0 when key is expired on the source, this is used
