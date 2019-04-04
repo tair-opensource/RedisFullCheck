@@ -70,7 +70,7 @@ Help Options:
 
 # Usage
 ---
-Run `./bin/redis-shake.darwin64` or `redis-shake.linux64` which is built in OSX and Linux respectively.<br>
+Run `./bin/redis-shake.darwin64` or `redis-shake.linux64` which is built in OSX and Linux respectively, however, the binaries aren't always the newest version.<br>
 Or you can build redis-shake yourself according to the following steps:<br>
 *  git clone https://github.com/alibaba/RedisFullCheck.git
 *  cd RedisFullCheck/src/vendor
