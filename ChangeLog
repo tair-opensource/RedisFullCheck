@@ -1,3 +1,7 @@
+2019-06-23 Alibaba Cloud.
+	* VERSION: 1.2.4
+	* BUGFIX: fix bug of stat print.
+	* IMRPOVE: support tencent cloud redis proxy.
 2019-04-04 Alibaba Cloud.
 	* VERSION: 1.2.3
 	* BUGFIX: ignore key when type changed between run `scan` and the
