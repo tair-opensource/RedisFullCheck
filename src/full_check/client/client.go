@@ -24,6 +24,7 @@ type RedisHost struct {
 	TimeoutMs uint64
 	Role      string // "source" or "target"
 	Authtype  string // "auth" or "adminauth"
+	DBType    int
 }
 
 func (p RedisHost) String() string {
