@@ -247,7 +247,10 @@ func (p *FullCheck) Start() {
 			tickerStat := time.NewTicker(time.Second * common.StatRollFrequency)
 			ctxStat, cancelStat := context.WithCancel(context.Background()) // 主动cancel
 			go func(ctx context.Context) {
-				defer tickerStat.Stop()
+				defer func() {
+					tickerStat.Stop()
+				}()
+
 				for range tickerStat.C {
 					select { // 判断是否结束
 					case <-ctx.Done():
@@ -301,7 +304,10 @@ func (p *FullCheck) Start() {
 			p.PrintStat(true)
 		} // for db, keyNum := range dbNums
 	} // end for
-	common.Logger.Infof("all finish successfully, totally %d keys or fields conflict", p.totalConflict)
+
+	p.stat.Reset()
+	common.Logger.Infof("all finish successfully, totally %d key(s) and %d field(s) conflict",
+		p.stat.TotalConflictKeys, p.stat.TotalConflictFields)
 }
 
 func (p *FullCheck) GetCurrentResultTable() (key string, field string) {
