@@ -108,6 +108,7 @@ func main() {
 			TimeoutMs: 0,
 			Role:      "source",
 			Authtype:  conf.Opts.SourceAuthType,
+			DBType:    conf.Opts.SourceDBType,
 		},
 		TargetHost: client.RedisHost{
 			Addr:      conf.Opts.TargetAddr,
@@ -115,6 +116,7 @@ func main() {
 			TimeoutMs: 0,
 			Role:      "target",
 			Authtype:  conf.Opts.TargetAuthType,
+			// DBType:    conf.Opts.TargetDBType,
 		},
 		ResultDBFile: conf.Opts.ResultDBFile,
 		CompareCount: compareCount,

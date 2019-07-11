@@ -22,9 +22,12 @@ func (p *AtomicSpeedCounter) Inc(i int) {
 	atomic.AddInt64(&p.intervalSum, int64(i))
 }
 
-func (p *AtomicSpeedCounter) Rotate() {
+// return previous intervalSum
+func (p *AtomicSpeedCounter) Rotate() int64 {
 	old := atomic.SwapInt64(&p.intervalSum, 0)
 	p.lastSpeed = (old + common.StatRollFrequency - 1) / common.StatRollFrequency
+
+	return old
 }
 
 func (p *AtomicSpeedCounter) Reset() {
