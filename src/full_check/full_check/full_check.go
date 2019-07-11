@@ -6,16 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
 	_ "path"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 	"full_check/common"
-	"math"
 	"full_check/metric"
 	"full_check/checker"
 	"full_check/configure"
@@ -34,13 +31,12 @@ const (
 type FullCheck struct {
 	checker.FullCheckParameter
 
-	stat            metric.Stat
-	currentDB       int32
-	times           int
-	db              [100]*sql.DB
-	sourceIsProxy   bool
-	sourceNodeCount int
-	sourceDBNums    map[int32]int64
+	stat                 metric.Stat
+	currentDB            int32
+	times                int
+	db                   [100]*sql.DB
+	sourcePhysicalDBList []string
+	sourceLogicalDBMap   map[int32]int64
 
 	totalConflict      int64
 	totalKeyConflict   int64
@@ -77,12 +73,12 @@ func (p *FullCheck) PrintStat(finished bool) {
 	var buf bytes.Buffer
 
 	var metricStat *metric.Metric
-	finishPercent := p.stat.Scan.Total() * 100 * int64(p.times) / (p.sourceDBNums[p.currentDB] * int64(p.CompareCount))
+	finishPercent := p.stat.Scan.Total() * 100 * int64(p.times) / (p.sourceLogicalDBMap[p.currentDB] * int64(p.CompareCount))
 	if p.times == 1 {
 		metricStat = &metric.Metric{
 			CompareTimes: p.times,
 			Db: p.currentDB,
-			DbKeys: p.sourceDBNums[p.currentDB],
+			DbKeys: p.sourceLogicalDBMap[p.currentDB],
 			Process: finishPercent,
 			OneCompareFinished: finished,
 			AllFinished: false,
@@ -92,7 +88,7 @@ func (p *FullCheck) PrintStat(finished bool) {
 			JobId: conf.Opts.JobId,
 			TaskId: conf.Opts.TaskId}
 		fmt.Fprintf(&buf, "times:%d,db:%d,dbkeys:%d,finish:%d%%,finished:%v\n", p.times, p.currentDB,
-			p.sourceDBNums[p.currentDB], finishPercent, finished)
+			p.sourceLogicalDBMap[p.currentDB], finishPercent, finished)
 	} else {
 		metricStat = &metric.Metric{
 			CompareTimes: p.times,
@@ -216,49 +212,22 @@ func (p *FullCheck) Start() {
 		defer p.db[i].Close()
 	}
 
-	// 取keyspace
 	sourceClient, err := client.NewRedisClient(p.SourceHost, 0)
 	if err != nil {
 		panic(common.Logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
 			p.SourceHost, 0, err))
 	}
 
-	keyspaceContent, err := sourceClient.Do("info", "Keyspace")
+	p.sourceLogicalDBMap, p.sourcePhysicalDBList, err = sourceClient.FetchBaseInfo()
 	if err != nil {
-		panic(common.Logger.Error(err))
+		panic(common.Logger.Critical(err))
 	}
-	p.sourceDBNums, err = common.ParseKeyspace(keyspaceContent.([]byte))
-	if err != nil {
-		panic(common.Logger.Error(err))
-	}
-	_, err = sourceClient.Do("iscan", 0, 0, "count", 1)
-	if err != nil {
-		if strings.Contains(err.Error(), "ERR unknown command") {
-			p.sourceIsProxy = false
-			p.sourceNodeCount = 1
-		} else {
-			panic(common.Logger.Error(err))
-		}
-	} else {
-		p.sourceIsProxy = true
-		info, err := redis.Bytes(sourceClient.Do("info", "Cluster"))
-		if err != nil {
-			panic(common.Logger.Error(err))
-		}
-		result := common.ParseInfo(info)
-		sourceNodeCount, err := strconv.ParseInt(result["nodecount"], 10, 0)
-		if err != nil {
-			panic(common.Logger.Error(err))
-		}
-		if sourceNodeCount <= 0 {
-			panic(common.Logger.Errorf("sourceNodeCount %d <=0", sourceNodeCount))
-		}
-		p.sourceNodeCount = int(sourceNodeCount)
-	}
-	common.Logger.Infof("sourceIsProxy=%v,p.sourceNodeCount=%d", p.sourceIsProxy, p.sourceNodeCount)
+
+	common.Logger.Infof("sourceDbType=%v, p.sourcePhysicalDBList=%v", p.FullCheckParameter.SourceHost.DBType,
+		p.sourcePhysicalDBList)
 
 	sourceClient.Close()
-	for db, keyNum := range p.sourceDBNums {
+	for db, keyNum := range p.sourceLogicalDBMap {
 		common.Logger.Infof("db=%d:keys=%d", db, keyNum)
 	}
 
@@ -268,16 +237,19 @@ func (p *FullCheck) Start() {
 			common.Logger.Infof("wait %d seconds before start", p.Interval)
 			time.Sleep(time.Second * time.Duration(p.Interval))
 		}
-		common.Logger.Infof("start %dth time compare", p.times)
+		common.Logger.Infof("---------------- start %dth time compare", p.times)
 
-		for db := range p.sourceDBNums {
+		for db := range p.sourceLogicalDBMap {
 			p.currentDB = db
 			p.stat.Reset()
 			// init stat timer
 			tickerStat := time.NewTicker(time.Second * common.StatRollFrequency)
 			ctxStat, cancelStat := context.WithCancel(context.Background()) // 主动cancel
 			go func(ctx context.Context) {
-				defer tickerStat.Stop()
+				defer func() {
+					tickerStat.Stop()
+				}()
+
 				for range tickerStat.C {
 					select { // 判断是否结束
 					case <-ctx.Done():
@@ -331,7 +303,10 @@ func (p *FullCheck) Start() {
 			p.PrintStat(true)
 		} // for db, keyNum := range dbNums
 	} // end for
-	common.Logger.Infof("all finish successfully, totally %d keys or fields conflict", p.totalConflict)
+
+	p.stat.Reset()
+	common.Logger.Infof("all finish successfully, totally %d key(s) and %d field(s) conflict",
+		p.stat.TotalConflictKeys, p.stat.TotalConflictFields)
 }
 
 func (p *FullCheck) GetCurrentResultTable() (key string, field string) {
@@ -401,17 +376,20 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 	}
 	defer sourceClient.Close()
 
-	for idx := 0; idx < p.sourceNodeCount; idx++ {
+	for idx := 0; idx < len(p.sourcePhysicalDBList); idx++ {
 		cursor := 0
 		for {
 			var reply interface{}
 			var err error
-			if p.sourceIsProxy == false {
-				reply, err = sourceClient.Do("scan", cursor, "count", p.BatchCount)
-			} else {
-				reply, err = sourceClient.Do("iscan", idx, cursor, "count", p.BatchCount)
-			}
 
+			switch p.SourceHost.DBType {
+			case common.TypeDB:
+				reply, err = sourceClient.Do("scan", cursor, "count", p.BatchCount)
+			case common.TypeAliyunProxy:
+				reply, err = sourceClient.Do("iscan", idx, cursor, "count", p.BatchCount)
+			case common.TypeTencentProxy:
+				reply, err = sourceClient.Do("scan", cursor, "count", p.BatchCount, p.sourcePhysicalDBList[idx])
+			}
 			if err != nil {
 				panic(common.Logger.Critical(err))
 			}
@@ -460,7 +438,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 				break
 			}
 		} // end for{}
-	} // end fo for idx := 0; idx < p.sourceNodeCount; idx++
+	} // end fo for idx := 0; idx < p.sourcePhysicalDBList; idx++
 	close(allKeys)
 }
 
@@ -570,19 +548,14 @@ func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*common.Key, conflictKey c
 	}
 	defer targetClient.Close()
 
-	divisor := int(math.Max(1, float64(conf.Opts.Qps / 1000 / conf.Opts.Parallel)))
-	standardTime := int64(p.BatchCount * 3 / divisor)
+	// limit qps
+	qos := common.StartQoS(conf.Opts.Qps)
 	for keyInfo := range allKeys {
-		begin := time.Now().UnixNano() / 1000 / 1000
-
+		<-qos.Bucket
 		p.verifier.VerifyOneGroupKeyInfo(keyInfo, conflictKey, &sourceClient, &targetClient)
-
-		interval := time.Now().UnixNano()/1000/1000 - begin
-		if standardTime-interval > 0 {
-			time.Sleep(time.Duration(standardTime-interval) * time.Millisecond)
-		}
-
 	} // for oneGroupKeys := range allKeys
+
+	qos.Close()
 }
 
 func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
