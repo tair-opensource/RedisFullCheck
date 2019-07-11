@@ -174,7 +174,6 @@ func (p *FullCheck) PrintStat(finished bool) {
 	}
 
 	p.totalConflict = p.totalKeyConflict + p.totalFieldConflict
-	common.Logger.Infof("@@@@@@@ %v %v %v", p.totalKeyConflict, p.totalFieldConflict, p.totalConflict)
 	if conf.Opts.MetricPrint {
 		metricstr, _ := json.Marshal(metricStat)
 		common.Logger.Info(string(metricstr))
