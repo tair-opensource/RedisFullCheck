@@ -16,7 +16,7 @@ Redis-full-check fetches keys from source and then checks these keys exist on th
 * target->RedisFullCheck->source
 
 # supports
-standalone, cluster, proxy(aliyun-cluster, tencent-cluster)
+standalone, cluster, proxy(aliyun-cluster, tencent-cluster). Redis version from 2.x to 5.x.
 
 # Code branch rules
 Version rules: a.b.c.<br>
