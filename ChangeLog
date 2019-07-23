@@ -1,3 +1,6 @@
+2019-07-23 Alibaba Cloud.
+	* VERSION: 1.4.0
+	* FEATURE: support cluster.
 2019-06-23 Alibaba Cloud.
 	* VERSION: 1.2.4
 	* BUGFIX: fix bug of stat print.

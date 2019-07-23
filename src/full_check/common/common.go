@@ -10,12 +10,15 @@ const (
 
 	// db type
 	TypeDB           = 0 // db
-	TypeAliyunProxy  = 1 // aliyun proxy
-	TypeTencentProxy = 2 // tencent cloud proxy
+	TypeCluster      = 1
+	TypeAliyunProxy  = 2 // aliyun proxy
+	TypeTencentProxy = 3 // tencent cloud proxy
 
 	TypeMaster = "master"
 	TypeSlave  = "slave"
 	TypeAll    = "all"
+
+	Splitter = ";"
 )
 
 var (
