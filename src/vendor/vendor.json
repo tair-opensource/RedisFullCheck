@@ -61,6 +61,12 @@
 			"revisionTime": "2016-12-15T10:56:53Z"
 		},
 		{
+			"checksumSHA1": "e+1CFg/UrAbOy7aN8Ww0iWBk8Vo=",
+			"path": "github.com/jinzhu/copier",
+			"revision": "976e0346caa839d22a17f8031a96bcd0870c0128",
+			"revisionTime": "2019-06-25T01:51:34Z"
+		},
+		{
 			"checksumSHA1": "vJOfjdXbjymKpuay2nyRnGncJUw=",
 			"path": "github.com/mattn/go-sqlite3",
 			"revision": "5160b48509cf5c877bc22c11c373f8c7738cdb38",
@@ -95,6 +101,12 @@
 			"path": "github.com/stretchr/testify/suite",
 			"revision": "04af85275a5c7ac09d16bb3b9b2e751ed45154e5",
 			"revisionTime": "2018-10-09T18:43:15Z"
+		},
+		{
+			"checksumSHA1": "HbZoVLW9JxHp2ylxN7uombqzI98=",
+			"path": "github.com/vinllen/redis-go-cluster",
+			"revision": "3ff5bf00cf32de786689161f17f0203107b340f8",
+			"revisionTime": "2019-07-23T08:35:40Z"
 		},
 		{
 			"checksumSHA1": "dr5+PfIRzXeN+l1VG+s0lea9qz8=",

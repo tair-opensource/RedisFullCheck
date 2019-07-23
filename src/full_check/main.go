@@ -88,6 +88,8 @@ func main() {
 	} else {
 		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
+
+	// filter list
 	var filterTree *common.Trie
 	if len(conf.Opts.FilterList) != 0 {
 		filterTree = common.NewTrie()
@@ -103,20 +105,22 @@ func main() {
 
 	fullCheckParameter := checker.FullCheckParameter{
 		SourceHost: client.RedisHost{
-			Addr:      conf.Opts.SourceAddr,
-			Password:  conf.Opts.SourcePassword,
-			TimeoutMs: 0,
-			Role:      "source",
-			Authtype:  conf.Opts.SourceAuthType,
-			DBType:    conf.Opts.SourceDBType,
+			Addr:         strings.Split(conf.Opts.SourceAddr, common.Splitter),
+			Password:     conf.Opts.SourcePassword,
+			TimeoutMs:    0,
+			Role:         "source",
+			Authtype:     conf.Opts.SourceAuthType,
+			DBType:       conf.Opts.SourceDBType,
+			DBFilterList: common.FilterDBList(conf.Opts.SourceDBFilterList),
 		},
 		TargetHost: client.RedisHost{
-			Addr:      conf.Opts.TargetAddr,
-			Password:  conf.Opts.TargetPassword,
-			TimeoutMs: 0,
-			Role:      "target",
-			Authtype:  conf.Opts.TargetAuthType,
-			// DBType:    conf.Opts.TargetDBType,
+			Addr:         strings.Split(conf.Opts.TargetAddr, common.Splitter),
+			Password:     conf.Opts.TargetPassword,
+			TimeoutMs:    0,
+			Role:         "target",
+			Authtype:     conf.Opts.TargetAuthType,
+			DBType:       conf.Opts.TargetDBType,
+			DBFilterList: common.FilterDBList(conf.Opts.TargetDBFilterList),
 		},
 		ResultDBFile: conf.Opts.ResultDBFile,
 		CompareCount: compareCount,

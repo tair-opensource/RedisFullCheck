@@ -12,6 +12,7 @@ import (
 	"full_check/common"
 
 	"github.com/garyburd/redigo/redis"
+	redigoCluster "github.com/vinllen/redis-go-cluster"
 )
 
 var (
@@ -19,16 +20,21 @@ var (
 )
 
 type RedisHost struct {
-	Addr      string
-	Password  string
-	TimeoutMs uint64
-	Role      string // "source" or "target"
-	Authtype  string // "auth" or "adminauth"
-	DBType    int
+	Addr         []string
+	Password     string
+	TimeoutMs    uint64
+	Role         string // "source" or "target"
+	Authtype     string // "auth" or "adminauth"
+	DBType       int
+	DBFilterList map[int]struct{} // whitelist
 }
 
 func (p RedisHost) String() string {
 	return fmt.Sprintf("%s redis addr: %s", p.Role, p.Addr)
+}
+
+func (p RedisHost) IsCluster() bool {
+	return p.DBType == common.TypeCluster
 }
 
 type RedisClient struct {
@@ -79,24 +85,47 @@ func (p *RedisClient) CheckHandleNetError(err error) bool {
 func (p *RedisClient) Connect() error {
 	var err error
 	if p.conn == nil {
-		if p.redisHost.TimeoutMs == 0 {
-			p.conn, err = redis.Dial("tcp", p.redisHost.Addr)
+		if p.redisHost.IsCluster() == false {
+			// single db or proxy
+			if p.redisHost.TimeoutMs == 0 {
+				p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0])
+			} else {
+				p.conn, err = redis.DialTimeout("tcp", p.redisHost.Addr[0], time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
+					time.Millisecond*time.Duration(p.redisHost.TimeoutMs), time.Millisecond*time.Duration(p.redisHost.TimeoutMs))
+			}
 		} else {
-			p.conn, err = redis.DialTimeout("tcp", p.redisHost.Addr, time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
-				time.Millisecond*time.Duration(p.redisHost.TimeoutMs), time.Millisecond*time.Duration(p.redisHost.TimeoutMs))
+			// cluster
+
+			cluster, err := redigoCluster.NewCluster(
+				&redigoCluster.Options{
+					StartNodes:   p.redisHost.Addr,
+					ConnTimeout:  time.Duration(p.redisHost.TimeoutMs) * time.Millisecond,
+					ReadTimeout:  0,
+					WriteTimeout: 0,
+					KeepAlive:    16,
+					AliveTime:    60 * time.Second,
+					Password:     p.redisHost.Password,
+				})
+			if err == nil {
+				p.conn = common.NewClusterConn(cluster, 0)
+			}
 		}
 		if err != nil {
 			return err
 		}
+
 		if len(p.redisHost.Password) != 0 {
 			_, err = p.conn.Do(p.redisHost.Authtype, p.redisHost.Password)
 			if err != nil {
 				return err
 			}
 		}
-		_, err = p.conn.Do("select", p.db)
-		if err != nil {
-			return err
+
+		if p.redisHost.DBType != common.TypeCluster {
+			_, err = p.conn.Do("select", p.db)
+			if err != nil {
+				return err
+			}
 		}
 	} // p.conn == nil
 	return nil

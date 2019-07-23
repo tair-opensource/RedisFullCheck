@@ -2,6 +2,8 @@ package common
 
 import (
 	"bytes"
+	"strings"
+	"strconv"
 )
 
 func Min(a, b int) int {
@@ -24,4 +26,28 @@ func ParseInfo(content []byte) map[string]string {
 		result[string(items[0])] = string(items[1])
 	}
 	return result
+}
+
+func FilterDBList(dbs string) map[int]struct{} {
+	ret := make(map[int]struct{})
+	// empty
+	if dbs == "-1" {
+		return ret
+	}
+
+	// empty
+	dbList := strings.Split(dbs, Splitter)
+	if len(dbList) == 0 {
+		return ret
+	}
+
+	for _, ele := range dbList {
+		val, err := strconv.Atoi(ele)
+		if err != nil {
+			panic(err)
+		}
+
+		ret[val] = struct{}{}
+	}
+	return ret
 }
