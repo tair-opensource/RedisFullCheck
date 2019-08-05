@@ -2,15 +2,17 @@ package main
 
 import (
 	"fmt"
-	"full_check/common"
-	"github.com/jessevdk/go-flags"
 	"os"
 	"strconv"
 	"strings"
+
 	"full_check/configure"
 	"full_check/full_check"
 	"full_check/checker"
 	"full_check/client"
+	"full_check/common"
+
+	"github.com/jessevdk/go-flags"
 )
 
 var VERSION = "$"
@@ -89,6 +91,16 @@ func main() {
 		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
 
+	sourceAddressList := strings.Split(conf.Opts.SourceAddr, common.Splitter)
+	if len(sourceAddressList) != 0 && conf.Opts.SourceDBType == 0 {
+		panic(common.Logger.Errorf("looks like the source is cluster? please set sourcedbtype"))
+	}
+
+	targetAddressList := strings.Split(conf.Opts.TargetAddr, common.Splitter)
+	if len(targetAddressList) != 0 && conf.Opts.TargetDBType == 0 {
+		panic(common.Logger.Errorf("looks like the target is cluster? please set targetdbtype"))
+	}
+
 	// filter list
 	var filterTree *common.Trie
 	if len(conf.Opts.FilterList) != 0 {
@@ -105,7 +117,7 @@ func main() {
 
 	fullCheckParameter := checker.FullCheckParameter{
 		SourceHost: client.RedisHost{
-			Addr:         strings.Split(conf.Opts.SourceAddr, common.Splitter),
+			Addr:         sourceAddressList,
 			Password:     conf.Opts.SourcePassword,
 			TimeoutMs:    0,
 			Role:         "source",
@@ -114,7 +126,7 @@ func main() {
 			DBFilterList: common.FilterDBList(conf.Opts.SourceDBFilterList),
 		},
 		TargetHost: client.RedisHost{
-			Addr:         strings.Split(conf.Opts.TargetAddr, common.Splitter),
+			Addr:         targetAddressList,
 			Password:     conf.Opts.TargetPassword,
 			TimeoutMs:    0,
 			Role:         "target",
