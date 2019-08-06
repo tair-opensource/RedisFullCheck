@@ -191,6 +191,7 @@ begin:
 				if p.CheckHandleNetError(err) {
 					continue
 				}
+				common.Logger.Errorf("connect failed[%v]", err)
 				return nil, err
 			}
 		}
@@ -201,6 +202,7 @@ begin:
 				if p.CheckHandleNetError(err) {
 					continue begin
 				}
+				common.Logger.Errorf("send command[%v] failed[%v]", ele.command, err)
 				return nil, err
 			}
 		}
@@ -209,6 +211,7 @@ begin:
 			if p.CheckHandleNetError(err) {
 				continue
 			}
+			common.Logger.Errorf("flush failed[%v]", err)
 			return nil, err
 		}
 
@@ -225,6 +228,7 @@ begin:
 					result[i] = common.TypeChanged
 					continue
 				}
+				common.Logger.Errorf("receive command[%v] failed[%v]", commands[i], err)
 				return nil, err
 			}
 			result[i] = reply
@@ -246,6 +250,7 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 	result := make([]string, len(keyInfo))
 	if ret, err := p.PipeRawCommand(commands, ""); err != nil {
 		if err != emptyError {
+			common.Logger.Errorf("run PipeRawCommand with commands[%v] failed[%v]", commands, err)
 			return nil, err
 		}
 	} else {

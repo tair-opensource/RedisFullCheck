@@ -91,12 +91,13 @@ func main() {
 		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
 
-	sourceAddressList := strings.Split(conf.Opts.SourceAddr, common.Splitter)
+
+	sourceAddressList, err := client.HandleAddress(conf.Opts.SourceAddr, conf.Opts.SourcePassword, conf.Opts.SourceAuthType)
 	if len(sourceAddressList) != 0 && conf.Opts.SourceDBType == 0 {
 		panic(common.Logger.Errorf("looks like the source is cluster? please set sourcedbtype"))
 	}
 
-	targetAddressList := strings.Split(conf.Opts.TargetAddr, common.Splitter)
+	targetAddressList, err := client.HandleAddress(conf.Opts.TargetAddr, conf.Opts.TargetPassword, conf.Opts.TargetAuthType)
 	if len(targetAddressList) != 0 && conf.Opts.TargetDBType == 0 {
 		panic(common.Logger.Errorf("looks like the target is cluster? please set targetdbtype"))
 	}
