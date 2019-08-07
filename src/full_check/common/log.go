@@ -13,7 +13,7 @@ func InitLog(logFile string) (seelog.LoggerInterface, error) {
 					<console />
 				</outputs>
 				<formats>
-					<format id="main" format="%LEVEL %Date-%Time] (%File:%Line): %Msg%n"/>
+					<format id="main" format="[%LEVEL %Date-%Time %File:%Line]: %Msg%n"/>
 				</formats>
 			</seelog>`
 	} else {
@@ -23,7 +23,7 @@ func InitLog(logFile string) (seelog.LoggerInterface, error) {
 					<file path="` + logFile + `"/>
 				</outputs>
 				<formats>
-					<format id="main" format="%LEVEL %Date-%Time] (%File:%Line): %Msg%n"/>
+					<format id="main" format="[%LEVEL %Date-%Time %File:%Line]: %Msg%n"/>
 				</formats>
 			</seelog>`
 	}
