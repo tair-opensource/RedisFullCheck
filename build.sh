@@ -34,7 +34,10 @@ fi
 t=$(date "+%Y-%m-%d_%H:%M:%S")
 info=$info","$t
 
+output=./bin/
+rm -rf ${output}
+
 echo "[ BUILD RELEASE ]"
 run_builder='go build -v'
-$run_builder -ldflags "-X $info" -o "bin/redis-full-check" "./src/full_check/"
+$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "./src/full_check/"
 echo "build successfully!"

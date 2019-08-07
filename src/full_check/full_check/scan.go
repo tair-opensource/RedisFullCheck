@@ -12,8 +12,6 @@ import (
 )
 
 func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
-	var err error
-	var sourceClient client.RedisClient
 	var wg sync.WaitGroup
 
 	wg.Add(len(p.sourcePhysicalDBList))
@@ -22,6 +20,8 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 		go func(index int) {
 			defer wg.Done()
 			cursor := 0
+			var sourceClient client.RedisClient
+			var err error
 
 			// build client
 			if p.SourceHost.IsCluster() {

@@ -1,3 +1,7 @@
+2019-08-07 Alibaba Cloud.
+	* VERSION: 1.4.1
+	* BUGFIX: cluster connection panic. see #50, #52.
+	* IMPROVE: cluster connection auto-detection. see #49.
 2019-07-23 Alibaba Cloud.
 	* VERSION: 1.4.0
 	* FEATURE: support cluster.
