@@ -255,7 +255,13 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 		}
 	} else {
 		for i, ele := range ret {
-			result[i] = ele.(string)
+			if v, ok := ele.(string); ok {
+				result[i] = v
+			} else {
+				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type string", commands, ele)
+				common.Logger.Error(err)
+				return nil, err
+			}
 		}
 	}
 	return result, nil
