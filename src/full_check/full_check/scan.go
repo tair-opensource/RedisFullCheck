@@ -22,7 +22,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 			cursor := 0
 			var sourceClient client.RedisClient
 			var err error
-			
+
 			// build client
 			if p.SourceHost.IsCluster() {
 				var singleHost client.RedisHost
