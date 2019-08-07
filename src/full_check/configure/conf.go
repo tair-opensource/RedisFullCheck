@@ -22,7 +22,7 @@ var Opts struct {
 	BatchCount         string `long:"batchcount" value-name:"COUNT" default:"256" description:"the count of key/field per batch compare, valid value [1, 10000]"`
 	Parallel           int    `long:"parallel" value-name:"COUNT" default:"5" description:"concurrent goroutine number for comparison, valid value [1, 100]"`
 	LogFile            string `long:"log" value-name:"FILE" description:"log file, if not specified, log is put to console"`
-	ResultFile         string `long:"result" value-name:"FILE" description:"store all diff result in to file, format is 'db\tdiff-type\tkey\tfield'"`
+	ResultFile         string `long:"result" value-name:"FILE" description:"store all diff result into the file, format is 'db\tdiff-type\tkey\tfield'"`
 	MetricPrint        bool   `long:"metric" value-name:"BOOL" description:"print metric in log"`
 	BigKeyThreshold    int64  `long:"bigkeythreshold" value-name:"COUNT" default:"16384"`
 	FilterList         string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
