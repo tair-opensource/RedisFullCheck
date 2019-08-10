@@ -92,14 +92,14 @@ func main() {
 	}
 
 	sourceAddressList, err := client.HandleAddress(conf.Opts.SourceAddr, conf.Opts.SourcePassword, conf.Opts.SourceAuthType)
-	if len(sourceAddressList) > 1 && conf.Opts.SourceDBType == 0 {
+	if len(sourceAddressList) > 1 && conf.Opts.SourceDBType != 1 {
 		panic(common.Logger.Errorf("looks like the source is cluster? please set sourcedbtype"))
 	} else if len(sourceAddressList) == 0 {
 		panic(common.Logger.Errorf("input source address is empty"))
 	}
 
 	targetAddressList, err := client.HandleAddress(conf.Opts.TargetAddr, conf.Opts.TargetPassword, conf.Opts.TargetAuthType)
-	if len(targetAddressList) > 1 && conf.Opts.TargetDBType == 0 {
+	if len(targetAddressList) > 1 && conf.Opts.TargetDBType != 1 {
 		panic(common.Logger.Errorf("looks like the target is cluster? please set targetdbtype"))
 	} else if len(targetAddressList) == 0 {
 		panic(common.Logger.Errorf("input target address is empty"))
