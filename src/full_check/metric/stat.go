@@ -23,13 +23,26 @@ func (p *Stat) Rotate() {
 	}
 }
 
-func (p *Stat) Reset() {
+func (p *Stat) Reset(clear bool) {
 	p.Scan.Reset()
+	if clear {
+		p.TotalConflictFields = 0
+		p.TotalConflictKeys = 0
+		return
+	}
 	for keyType := common.KeyTypeIndex(0); keyType < common.EndKeyTypeIndex; keyType++ {
 		for conType := common.ConflictType(0); conType < common.EndConflict; conType++ {
 			if conType < common.NoneConflict {
-				p.TotalConflictFields += p.ConflictField[keyType][conType].Total()
-				p.TotalConflictKeys += p.ConflictKey[keyType][conType].Total()
+				keyConflict := p.ConflictKey[keyType][conType].Total()
+				fieldConflict := p.ConflictField[keyType][conType].Total()
+				if keyConflict != 0 {
+					p.TotalConflictKeys += keyConflict
+					common.Logger.Debugf("key conflict: keyType[%v] conType[%v]", keyType, conType)
+				}
+				if fieldConflict != 0 {
+					p.TotalConflictFields += fieldConflict
+					common.Logger.Debugf("field conflict: keyType[%v] conType[%v]", keyType, conType)
+				}
 			}
 
 			p.ConflictField[keyType][conType].Reset()
