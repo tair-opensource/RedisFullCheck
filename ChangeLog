@@ -1,3 +1,8 @@
+2019-08-13 Alibaba Cloud.
+	* VERSION: 1.4.3
+	* BUGFIX: single db use cluster client.
+	* IMPROVE: add log level configuration and print more log info.
+	* BUGFIX: key conflicts stat inaccurate.
 2019-08-10 Alibaba Cloud.
 	* VERSION: 1.4.2
 	* BUGFIX: judge the source is type cluster or db.

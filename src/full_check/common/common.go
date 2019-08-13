@@ -1,6 +1,9 @@
 package common
 
-import "github.com/cihub/seelog"
+import (
+	"github.com/cihub/seelog"
+	"fmt"
+)
 
 const (
 	MaxRetryCount     = 20 // client attribute
@@ -37,4 +40,22 @@ func CheckFilter(filterTree *Trie, keyBytes []byte) bool {
 		return true
 	}
 	return filterTree.Search(keyBytes)
+}
+
+func HandleLogLevel(logLevel string) (string, error) {
+	// seelog library is disgusting
+	switch logLevel {
+	case "debug":
+		return "debug,info,warn,error,critical", nil
+	case "":
+		fallthrough
+	case "info":
+		return "info,warn,error,critical", nil
+	case "warn":
+		return "warn,error,critical", nil
+	case "error":
+		return "error,critical", nil
+	default:
+		return "", fmt.Errorf("unknown log level[%v]", logLevel)
+	}
 }

@@ -29,6 +29,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 				copier.Copy(&singleHost, &p.SourceHost)
 				// set single host address
 				singleHost.Addr = []string{singleHost.Addr[index]}
+				singleHost.DBType = common.TypeDB
 				// build client by single db
 				if sourceClient, err = client.NewRedisClient(singleHost, p.currentDB); err != nil {
 					panic(common.Logger.Critical(err))
@@ -41,6 +42,8 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 				}
 			}
 			defer sourceClient.Close()
+
+			common.Logger.Infof("build connection[%v]", sourceClient.String())
 
 			for {
 				var reply interface{}
@@ -96,6 +99,7 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 						Tp:           common.EndKeyType,
 						ConflictType: common.EndConflict,
 					})
+					// common.Logger.Debugf("read key: %v", string(bytes))
 				}
 				p.IncrScanStat(len(keysInfo))
 				allKeys <- keysInfo

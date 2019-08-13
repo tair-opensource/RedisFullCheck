@@ -254,7 +254,7 @@ func (p *FullCheck) Start() {
 
 		for db := range p.sourceLogicalDBMap {
 			p.currentDB = db
-			p.stat.Reset()
+			p.stat.Reset(false)
 			// init stat timer
 			tickerStat := time.NewTicker(time.Second * common.StatRollFrequency)
 			ctxStat, cancelStat := context.WithCancel(context.Background()) // 主动cancel
@@ -315,9 +315,10 @@ func (p *FullCheck) Start() {
 			cancelStat() // stop stat goroutine
 			p.PrintStat(true)
 		} // for db, keyNum := range dbNums
+		p.stat.Reset(true)
 	} // end for
 
-	p.stat.Reset()
+	p.stat.Reset(false)
 	common.Logger.Infof("--------------- finished! ----------------\nall finish successfully, totally %d key(s) and %d field(s) conflict",
 		p.stat.TotalConflictKeys, p.stat.TotalConflictFields)
 }

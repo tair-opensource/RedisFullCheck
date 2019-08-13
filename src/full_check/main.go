@@ -47,7 +47,13 @@ func main() {
 	}
 
 	// init log
-	common.Logger, err = common.InitLog(conf.Opts.LogFile)
+	logLevel, err := common.HandleLogLevel(conf.Opts.LogLevel)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	common.Logger, err = common.InitLog(conf.Opts.LogFile, logLevel)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "init log failed: ", err)
 		os.Exit(1)
