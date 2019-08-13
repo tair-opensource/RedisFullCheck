@@ -4,13 +4,15 @@ import (
 	"github.com/cihub/seelog"
 )
 
-func InitLog(logFile string) (seelog.LoggerInterface, error) {
+func InitLog(logFile string, logLevel string) (seelog.LoggerInterface, error) {
 	var logConfig string
 	if len(logFile) == 0 {
 		logConfig = `
-			<seelog>
+			<seelog minlevel="debug">
 				<outputs formatid="main">
-					<console />
+					<filter levels="` + logLevel + `">
+                        <console />
+                    </filter>
 				</outputs>
 				<formats>
 					<format id="main" format="[%LEVEL %Date-%Time %File:%Line]: %Msg%n"/>
@@ -18,9 +20,11 @@ func InitLog(logFile string) (seelog.LoggerInterface, error) {
 			</seelog>`
 	} else {
 		logConfig = `
-			<seelog>
+			<seelog minlevel="debug">
 				<outputs formatid="main">
-					<file path="` + logFile + `"/>
+					<filter levels="` + logLevel + `">
+						<file path="` + logFile + `"/>
+					</filter>
 				</outputs>
 				<formats>
 					<format id="main" format="[%LEVEL %Date-%Time %File:%Line]: %Msg%n"/>

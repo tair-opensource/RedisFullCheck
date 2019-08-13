@@ -13,6 +13,7 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 	redigoCluster "github.com/vinllen/redis-go-cluster"
+	"reflect"
 )
 
 var (
@@ -258,7 +259,8 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 			if v, ok := ele.(string); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type string", commands, ele)
+				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type string[%v]",
+					commands, ele, reflect.TypeOf(ele))
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -283,7 +285,14 @@ func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) 
 		}
 	} else {
 		for i, ele := range ret {
-			result[i] = ele.(int64)
+			if v, ok := ele.(int64); ok {
+				result[i] = v
+			} else {
+				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type int64[%v]",
+					commands, ele, reflect.TypeOf(ele))
+				common.Logger.Error(err)
+				return nil, err
+			}
 		}
 	}
 	return result, nil
@@ -305,7 +314,14 @@ func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
 		}
 	} else {
 		for i, ele := range ret {
-			result[i] = ele.(int64)
+			if v, ok := ele.(int64); ok {
+				result[i] = v
+			} else {
+				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type int64[%v]",
+					commands, ele, reflect.TypeOf(ele))
+				common.Logger.Error(err)
+				return nil, err
+			}
 		}
 	}
 	return result, nil
@@ -327,7 +343,14 @@ func (p *RedisClient) PipeTTLCommand(keyInfo []*common.Key) ([]bool, error) {
 		}
 	} else {
 		for i, ele := range ret {
-			result[i] = ele.(int64) == 0
+			if v, ok := ele.(int64); ok {
+				result[i] = v == 0
+			} else {
+				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type int64[%v]",
+					commands, ele, reflect.TypeOf(ele))
+				common.Logger.Error(err)
+				return nil, err
+			}
 		}
 	}
 	return result, nil
