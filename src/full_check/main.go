@@ -151,6 +151,10 @@ func main() {
 		Parallel:     parallel,
 		FilterTree:   filterTree,
 	}
+
+	common.Logger.Info("configuration: ", conf.Opts)
+	common.Logger.Info("---------")
+
 	fullCheck := full_check.NewFullCheck(fullCheckParameter, full_check.CheckType(conf.Opts.CompareMode))
 	fullCheck.Start()
 }
