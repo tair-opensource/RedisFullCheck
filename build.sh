@@ -39,5 +39,12 @@ rm -rf ${output}
 
 echo "[ BUILD RELEASE ]"
 run_builder='go build -v'
-$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "./src/full_check/"
-echo "build successfully!"
+goos=(windows darwin linux)
+for g in "${goos[@]}"; do
+    export GOOS=$g
+    echo "try build goos=$g"
+    $run_builder -ldflags "-X $info" -o "$output/redis-full-check.$g" "./src/full_check/"
+    echo "build successfully!"
+done
+
+echo "all build successfully!"

@@ -27,5 +27,6 @@ var Opts struct {
 	MetricPrint        bool   `long:"metric" value-name:"BOOL" description:"print metric in log"`
 	BigKeyThreshold    int64  `long:"bigkeythreshold" value-name:"COUNT" default:"16384"`
 	FilterList         string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
+	SystemProfile      uint   `long:"systemprofile" value-name:"SYSTEM-PROFILE" default:"20445" description:"port that used to print golang inner head and stack message"`
 	Version            bool   `short:"v" long:"version"`
 }

@@ -13,6 +13,7 @@ import (
 	"full_check/common"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/gugemichael/nimo4go"
 )
 
 var VERSION = "$"
@@ -52,6 +53,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	nimo.Profiling(int(conf.Opts.SystemProfile))
 
 	common.Logger, err = common.InitLog(conf.Opts.LogFile, logLevel)
 	if err != nil {
