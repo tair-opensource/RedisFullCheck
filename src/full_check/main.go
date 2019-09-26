@@ -13,6 +13,7 @@ import (
 	"full_check/common"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/gugemichael/nimo4go"
 )
 
 var VERSION = "$"
@@ -52,6 +53,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	nimo.Profiling(int(conf.Opts.SystemProfile))
 
 	common.Logger, err = common.InitLog(conf.Opts.LogFile, logLevel)
 	if err != nil {
@@ -125,6 +128,11 @@ func main() {
 		common.Logger.Infof("filter list enabled: %v", filterList)
 	}
 
+	// remove result file if has
+	if len(conf.Opts.ResultFile) > 0 {
+		os.Remove(conf.Opts.ResultFile)
+	}
+
 	fullCheckParameter := checker.FullCheckParameter{
 		SourceHost: client.RedisHost{
 			Addr:         sourceAddressList,
@@ -151,6 +159,10 @@ func main() {
 		Parallel:     parallel,
 		FilterTree:   filterTree,
 	}
+
+	common.Logger.Info("configuration: ", conf.Opts)
+	common.Logger.Info("---------")
+
 	fullCheck := full_check.NewFullCheck(fullCheckParameter, full_check.CheckType(conf.Opts.CompareMode))
 	fullCheck.Start()
 }

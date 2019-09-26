@@ -57,7 +57,7 @@ func NewRedisClient(redisHost RedisHost, db int32) (RedisClient, error) {
 	// send ping command first
 	ret, err := rc.Do("ping")
 	if err == nil && ret.(string) != "PONG" {
-		return RedisClient{}, fmt.Errorf("ping return invaild[%v]", string(ret.([]byte)))
+		return RedisClient{}, fmt.Errorf("ping return invaild[%v]", ret)
 	}
 	return rc, err
 }
@@ -99,7 +99,6 @@ func (p *RedisClient) Connect() error {
 		}
 	} else {
 		// cluster
-
 		cluster, err := redigoCluster.NewCluster(
 			&redigoCluster.Options{
 				StartNodes:   p.redisHost.Addr,

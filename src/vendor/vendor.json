@@ -55,6 +55,12 @@
 			"revisionTime": "2017-07-18T22:17:51Z"
 		},
 		{
+			"checksumSHA1": "52vjznwP2OHubLvZkLCUCC9Gp5o=",
+			"path": "github.com/gugemichael/nimo4go",
+			"revision": "32795d80f83ab8c37b47589c5068dfbb14545c34",
+			"revisionTime": "2019-09-04T07:30:57Z"
+		},
+		{
 			"checksumSHA1": "KhsRogdBpJZ2jgO35be/eM1qyqc=",
 			"path": "github.com/jessevdk/go-flags",
 			"revision": "4e64e4a4e2552194cf594243e23aa9baf3b4297e",
