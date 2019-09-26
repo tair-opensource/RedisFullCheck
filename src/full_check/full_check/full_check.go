@@ -315,7 +315,11 @@ func (p *FullCheck) Start() {
 			cancelStat() // stop stat goroutine
 			p.PrintStat(true)
 		} // for db, keyNum := range dbNums
-		p.stat.Reset(true)
+
+		// do not reset when run the final time
+		if p.times < p.CompareCount {
+			p.stat.Reset(true)
+		}
 	} // end for
 
 	p.stat.Reset(false)
