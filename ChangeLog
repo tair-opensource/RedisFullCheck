@@ -1,3 +1,6 @@
+2019-09-26 Alibaba Cloud.
+	* VERSION: 1.4.4
+	* BUGFIX: conflicts number is 0 in diff file and console print.
 2019-08-13 Alibaba Cloud.
 	* VERSION: 1.4.3
 	* BUGFIX: single db use cluster client.
