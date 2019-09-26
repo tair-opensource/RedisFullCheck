@@ -128,6 +128,11 @@ func main() {
 		common.Logger.Infof("filter list enabled: %v", filterList)
 	}
 
+	// remove result file if has
+	if len(conf.Opts.ResultFile) > 0 {
+		os.Remove(conf.Opts.ResultFile)
+	}
+
 	fullCheckParameter := checker.FullCheckParameter{
 		SourceHost: client.RedisHost{
 			Addr:         sourceAddressList,
