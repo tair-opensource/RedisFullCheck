@@ -109,10 +109,10 @@
 			"revisionTime": "2018-10-09T18:43:15Z"
 		},
 		{
-			"checksumSHA1": "HbZoVLW9JxHp2ylxN7uombqzI98=",
+			"checksumSHA1": "GYdlJZBp2zfh0QEV/MN4M0L1nPE=",
 			"path": "github.com/vinllen/redis-go-cluster",
-			"revision": "3ff5bf00cf32de786689161f17f0203107b340f8",
-			"revisionTime": "2019-07-23T08:35:40Z"
+			"revision": "83c0ea01d33aea24bb40b9d46a85fb56dac543cb",
+			"revisionTime": "2019-11-12T06:34:43Z"
 		},
 		{
 			"checksumSHA1": "dr5+PfIRzXeN+l1VG+s0lea9qz8=",
@@ -120,5 +120,6 @@
 			"revision": "0a9397675ba34b2845f758fe3cd68828369c6517",
 			"revisionTime": "2017-07-19T03:24:12Z"
 		}
-	]
+	],
+	"rootPath": "/Users/vinllen-ali/code/redis-full-check-github/RedisFullCheck/src"
 }
