@@ -1,3 +1,8 @@
+2019-11-12 Alibaba Cloud.
+	* VERSION: 1.4.4
+	* BUGFIX: update redis-go-cluster to solve the MOVED error when 
+	redis type is cluster and key is unicode encoding. Thanks
+	@shuff1e(sfxu@foxmail.com). see#68.
 2019-09-26 Alibaba Cloud.
 	* VERSION: 1.4.4
 	* BUGFIX: conflicts number is 0 in diff file and console print.
