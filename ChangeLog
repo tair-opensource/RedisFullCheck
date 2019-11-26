@@ -1,3 +1,6 @@
+2019-11-26 Alibaba Cloud.
+	* VERSION: 1.4.6
+	* BUGFIX: update redis-go-cluster to solve \r\n bug. see #73.
 2019-11-12 Alibaba Cloud.
 	* VERSION: 1.4.5
 	* BUGFIX: update redis-go-cluster to solve the MOVED error when 
