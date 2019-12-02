@@ -26,6 +26,13 @@ func (p *KeyOutlineVerifier) FetchKeys(keyInfo []*common.Key, sourceClient *clie
 		}
 		for i, t := range sourceKeyTypeStr {
 			keyInfo[i].Tp = common.NewKeyType(t)
+			/*
+			 * Bugfix: see https://github.com/alibaba/RedisFullCheck/issues/74.
+			 * It will skip the conflict key check because keyInfo[i].SourceAttr.ItemCount is zero here.
+			 * Unlike the FetchTypeAndLen method in full_value_verifier, which will assign a non -zero value of keylen to keyInfo[i].SourceAttr.ItemCount
+			 * Refer to the VerifyOneGroupKeyInfo method for details.
+			 */
+			keyInfo[i].SourceAttr.ItemCount = 1
 		}
 		wg.Done()
 	}()
