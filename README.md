@@ -2,6 +2,8 @@ Redis-full-check is used to compare whether two redis have the same data. We als
 Thanks to the Douyu's WSD team for the support. <br>
 
 * [中文文档](https://yq.aliyun.com/articles/690463)
+* [下载地址 redis-full-check.tar.gz](https://github.com/alibaba/RedisFullCheck/releases)
+* [第一次使用，如何进行配置](https://github.com/alibaba/RedisFullCheck/wiki/%E7%AC%AC%E4%B8%80%E6%AC%A1%E4%BD%BF%E7%94%A8%EF%BC%8C%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E9%85%8D%E7%BD%AE%EF%BC%9F)
 
 # redis-full-check
 ---
@@ -14,7 +16,7 @@ Redis-full-check fetches keys from source and then checks these keys exist on th
 * target->RedisFullCheck->source
 
 # supports
-standalone, cluster, proxy(aliyun-cluster, tencent-cluster)
+standalone, cluster, proxy(aliyun-cluster, tencent-cluster). Redis version from 2.x to 5.x.
 
 # Code branch rules
 Version rules: a.b.c.<br>
@@ -111,4 +113,5 @@ We also provide some tools for synchronization in Shake series.<br>
 * [RedisShake](https://github.com/aliyun/RedisShake): redis data synchronization tool.
 * [RedisFullCheck](https://github.com/aliyun/RedisFullCheck): redis data synchronization verification tool.
 
-Plus, we have a WeChat group so that users can join and discuss, but the group user number is limited. So please add my WeChat number: `vinllen_xingge` first, and I will add you to this group.<br>
+Plus, we have a DingDing(钉钉) group so that users can join and discuss, please scan the code.
+![DingDing](resources/dingding_group.png)<br>
