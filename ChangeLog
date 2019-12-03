@@ -1,3 +1,7 @@
+2019-12-03 Alibaba Cloud.
+	* VERSION: 1.4.7
+	* BUGFIX: merge PR of solving problem that key difference results are not
+	verified. Thanks @shuff1e(sfxu@foxmail.com). see#74.
 2019-11-26 Alibaba Cloud.
 	* VERSION: 1.4.6
 	* BUGFIX: update redis-go-cluster to solve \r\n bug. see #73.
