@@ -76,11 +76,11 @@ func main() {
 		panic(common.Logger.Errorf("invalid option batchcount %s, expect int 1<=batchcount<=10000", conf.Opts.BatchCount))
 	}
 	parallel := conf.Opts.Parallel
-	if err != nil || parallel < 1 || parallel > 100 {
+	if parallel < 1 || parallel > 100 {
 		panic(common.Logger.Errorf("invalid option parallel %d, expect 1<=parallel<=100", conf.Opts.Parallel))
 	}
 	qps := conf.Opts.Qps
-	if err != nil || qps < 1 || qps > 5000000 {
+	if qps < 1 || qps > 5000000 {
 		panic(common.Logger.Errorf("invalid option qps %d, expect 1<=qps<=5000000", conf.Opts.Qps))
 	}
 	if conf.Opts.SourceAuthType != "auth" && conf.Opts.SourceAuthType != "adminauth" {
