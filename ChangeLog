@@ -1,3 +1,10 @@
+2020-02-13 Alibaba Cloud.
+	* VERSION: 1.4.8
+	* BUGFIX: fetch newest redis-go-cluster driver which solve MOVED problem
+	in redis-shake.
+	* IMRPOVE: polish error log.
+	* IMPROVE: validate the input address. if type is cluster, the input list
+	should be either all masters or all slaves, can't be mix.
 2019-12-03 Alibaba Cloud.
 	* VERSION: 1.4.7
 	* BUGFIX: merge PR of solving problem that key difference results are not
