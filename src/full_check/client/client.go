@@ -175,6 +175,15 @@ type combine struct {
 	params  []interface{}
 }
 
+func (c combine) String() string {
+	all := make([]string, 0, len(c.params) + 1)
+	all = append(all, c.command)
+	for _, ele := range c.params {
+		all = append(all, string(ele.([]byte)))
+	}
+	return strings.Join(all, " ")
+}
+
 func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix string) ([]interface{}, error) {
 	if len(commands) == 0 {
 		common.Logger.Warnf("input commands length is 0")
@@ -258,8 +267,8 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 			if v, ok := ele.(string); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type string[%v]",
-					commands, ele, reflect.TypeOf(ele))
+				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type string[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele))
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -287,8 +296,8 @@ func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) 
 			if v, ok := ele.(int64); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type int64[%v]",
-					commands, ele, reflect.TypeOf(ele))
+				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele))
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -316,8 +325,8 @@ func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
 			if v, ok := ele.(int64); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type int64[%v]",
-					commands, ele, reflect.TypeOf(ele))
+				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele))
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -345,8 +354,8 @@ func (p *RedisClient) PipeTTLCommand(keyInfo []*common.Key) ([]bool, error) {
 			if v, ok := ele.(int64); ok {
 				result[i] = v == 0
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%v] return element[%v] isn't type int64[%v]",
-					commands, ele, reflect.TypeOf(ele))
+				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele))
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -492,4 +501,12 @@ func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Ke
 		}
 	} // end for{}
 	return value, nil
+}
+
+func printCombinList(input []combine) string {
+	ret := make([]string, 0, len(input))
+	for _, ele := range input {
+		ret = append(ret, ele.String())
+	}
+	return strings.Join(ret, "; ")
 }
