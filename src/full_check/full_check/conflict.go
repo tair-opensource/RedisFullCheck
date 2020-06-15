@@ -7,10 +7,10 @@ import (
 	"full_check/client"
 	"full_check/common"
 	conf "full_check/configure"
+	redigoredis "github.com/garyburd/redigo/redis"
 	"log"
 	"math/rand"
 	"os"
-	redigoredis "github.com/garyburd/redigo/redis"
 	"sync/atomic"
 	"time"
 )
@@ -20,17 +20,17 @@ var (
 )
 
 type keyInfo struct {
-	Key string `json:"k"`
-	Type string `json:"t"`
+	Key          string `json:"k"`
+	Type         string `json:"t"`
 	ConflictType string `json:"ct"`
-	Db int32 `json:"db"`
-	SourceLen int64 `json:"sl"`
-	TargetLen int64 `json:"tl"`
+	Db           int32  `json:"db"`
+	SourceLen    int64  `json:"sl"`
+	TargetLen    int64  `json:"tl"`
 }
 
 type fieldInfo struct {
-	Key string `json:"k"`
-	Field string `json:"f"`
+	Key          string `json:"k"`
+	Field        string `json:"f"`
 	ConflictType string `json:"ct"`
 }
 
@@ -57,16 +57,16 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
 	c := 0
 	for oneKeyInfo := range conflictKey {
 		info := &keyInfo{
-			Key : string(oneKeyInfo.Key),
-			Type: oneKeyInfo.Tp.Name,
+			Key:          string(oneKeyInfo.Key),
+			Type:         oneKeyInfo.Tp.Name,
 			ConflictType: oneKeyInfo.ConflictType.String(),
-			Db: p.currentDB,
-			SourceLen: oneKeyInfo.SourceAttr.ItemCount,
-			TargetLen: oneKeyInfo.TargetAttr.ItemCount,
+			Db:           p.currentDB,
+			SourceLen:    oneKeyInfo.SourceAttr.ItemCount,
+			TargetLen:    oneKeyInfo.TargetAttr.ItemCount,
 		}
 		infoJson, _ := json.Marshal(info)
 		total := atomic.AddUint64(&(p.conflictBytesUsed), uint64(len(infoJson)))
-        if total > uint64(conf.Opts.ResultBytesLimit) {
+		if total > uint64(conf.Opts.ResultBytesLimit) {
 			panic(common.Logger.Errorf("too many conflicts!"))
 		}
 		_, err := rc.Do("RPUSH", keyList, string(infoJson))
@@ -74,15 +74,15 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
 			panic(common.Logger.Errorf("failed to exec rpush command: ", err))
 		}
 		if c == 0 {
-			rc.Do("EXPIRE", keyList, 3600 * 4)
-			c ++
+			rc.Do("EXPIRE", keyList, 3600*4)
+			c++
 		}
 		if len(oneKeyInfo.Field) != 0 {
 			keyFields := []*fieldInfo{}
-			for i := 0; i < len(oneKeyInfo.Field); i ++ {
+			for i := 0; i < len(oneKeyInfo.Field); i++ {
 				keyFields = append(keyFields, &fieldInfo{
-					Key: info.Key,
-					Field: string(oneKeyInfo.Field[i].Field),
+					Key:          info.Key,
+					Field:        string(oneKeyInfo.Field[i].Field),
 					ConflictType: oneKeyInfo.Field[i].ConflictType.String(),
 				})
 				if p.times == p.CompareCount {
@@ -97,7 +97,7 @@ func (p *FullCheck) WriteConflictKey(conflictKey <-chan *common.Key) {
 			if total > uint64(conf.Opts.ResultBytesLimit) {
 				panic(common.Logger.Errorf("too many conflicts!"))
 			}
-			_, err = rc.Do("SET", fieldsList, string(fieldsInfo), "EX", 3600 * 4)
+			_, err = rc.Do("SET", fieldsList, string(fieldsInfo), "EX", 3600*4)
 		} else {
 			if p.times == p.CompareCount {
 				if len(conf.Opts.ResultFile) != 0 {
@@ -136,7 +136,6 @@ func byteSlices(reply interface{}, err error) ([][]byte, error) {
 	return nil, fmt.Errorf("redigo: unexpected type for ByteSlices, got type %T", reply)
 }
 
-
 func (p *FullCheck) ScanFromDB(allkeys chan<- []*common.Key) {
 	conflictKeyTableName, conflictFieldTableName := p.GetLastResultTable()
 	keyList := fmt.Sprintf("fullcheck:%d:%s:key", random, conflictKeyTableName)
@@ -152,7 +151,7 @@ func (p *FullCheck) ScanFromDB(allkeys chan<- []*common.Key) {
 		if err == redigoredis.ErrNil || len(result) == 0 || len(result[0]) == 0 {
 			if len(keyInfoBatch) > 0 {
 				p.IncrScanStat(len(keyInfoBatch))
-				allkeys <-keyInfoBatch
+				allkeys <- keyInfoBatch
 			}
 			close(allkeys)
 			rc.Do("DEL", keyList)
@@ -211,7 +210,7 @@ func (p *FullCheck) ScanFromDB(allkeys chan<- []*common.Key) {
 		keyInfoBatch = append(keyInfoBatch, oneKeyInfo)
 		if len(keyInfoBatch) == p.BatchCount {
 			p.IncrScanStat(len(keyInfoBatch))
-			allkeys <-keyInfoBatch
+			allkeys <- keyInfoBatch
 			keyInfoBatch = []*common.Key{}
 		}
 	}
