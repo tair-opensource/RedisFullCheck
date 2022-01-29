@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"fmt"
 
-	"full_check/common"
-	"full_check/client"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/client"
 
 	"github.com/jinzhu/copier"
 	"sync"

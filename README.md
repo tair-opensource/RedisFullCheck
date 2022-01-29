@@ -1,16 +1,32 @@
-Redis-full-check is used to compare whether two redis have the same data. We also offer a data synchronization tool called [redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one redis to another redis.<br>
-Thanks to the Douyu's WSD team for the support. <br>
+Redis-full-check is used to compare whether two redis have the same data. We
+also offer a data synchronization tool called
+[redis-shake](https://github.com/aliyun/redis-shake) to syncing data from one
+redis to another redis.<br> Thanks to the Douyu's WSD team for the support.
+<br>
 
 * [中文文档](https://yq.aliyun.com/articles/690463)
 * [下载地址 redis-full-check.tar.gz](https://github.com/alibaba/RedisFullCheck/releases)
 * [第一次使用，如何进行配置](https://github.com/alibaba/RedisFullCheck/wiki/%E7%AC%AC%E4%B8%80%E6%AC%A1%E4%BD%BF%E7%94%A8%EF%BC%8C%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E9%85%8D%E7%BD%AE%EF%BC%9F)
 
 # redis-full-check
----
-Redis-full-check is developed and maintained by NoSQL Team in Alibaba-Cloud Database department.<br>
-Redis-full-check performs full data verification by comparing the data of the source database and the destination database. The entire check process consists of multiple comparisons, in every comparison, redis-full-check fetches data from two dabatases and then compared, the inconsistent data is put into sqlite3 db for the next comparison. By this iteratively comparing method, the difference continues to converge. The following figure shows the dataflow. In every comparison which is the yellow box, redis-full-check fetches all keys firstly. After that, it runs comparison and stores the difference result(key and field) into the sqlite3 db which is the position that keys and fields can be fetched in next round instead of the source database.<br>
+--- Redis-full-check is developed and maintained by NoSQL Team in Alibaba-Cloud
+Database department.<br> Redis-full-check performs full data verification by
+comparing the data of the source database and the destination database. The
+entire check process consists of multiple comparisons, in every comparison,
+redis-full-check fetches data from two dabatases and then compared, the
+inconsistent data is put into sqlite3 db for the next comparison. By this
+iteratively comparing method, the difference continues to converge. The
+following figure shows the dataflow. In every comparison which is the yellow
+box, redis-full-check fetches all keys firstly. After that, it runs comparison
+and stores the difference result(key and field) into the sqlite3 db which is
+the position that keys and fields can be fetched in next round instead of the
+source database.<br>
 ![dataflow.png](https://github.com/aliyun/redis-full-check/blob/master/resources/dataflow.png)<br>
-Redis-full-check fetches keys from source and then checks these keys exist on the target. So if one key exists on the target but lack on the source, redis-full-check can't find it. If you want to know whether the data in the source and destination databases are exactly the same, you need to set up a bidirectional link: <br>
+Redis-full-check fetches keys from source and then checks these keys exist on
+the target. So if one key exists on the target but lack on the source,
+redis-full-check can't find it. If you want to know whether the data in the
+source and destination databases are exactly the same, you need to set up a
+bidirectional link: <br>
 
 * source->RedisFullCheck->target
 * target->RedisFullCheck->source
@@ -75,13 +91,16 @@ Help Options:
 
 # Usage
 ---
-Run `./bin/redis-full-check.darwin64` or `redis-full-check.linux64` which is built in OSX and Linux respectively, however, the binaries aren't always the newest version.<br>
-Or you can build redis-full-check yourself according to the following steps:<br>
-*  git clone https://github.com/alibaba/RedisFullCheck.git
-*  cd RedisFullCheck/src/vendor
-*  GOPATH=\`pwd\`/../..; govendor sync     #please note: must install govendor first and then pull all dependencies
-*  cd ../../ && ./build.sh
-*  ./redis-full-check -s $(source_redis_ip_port) -p $(source_password) -t $(target_redis_ip_port) -a $(target_password) # these parameters should be given by users
+Run `./bin/redis-full-check.darwin64` or `redis-full-check.linux64` which is
+built in OSX and Linux respectively, however, the binaries aren't always the
+newest version.
+If you wish to build redis-full-check on your own, you may follow the instructions
+as follows:
+
+-  git clone https://github.com/alibaba/RedisFullCheck.git
+-  cd RedisFullCheck/
+-  ./build.sh
+-  ./bin/redis-full-check -s $(source_redis_ip_port) -p $(source_password) -t $(target_redis_ip_port) -a $(target_password) # these parameters should be given by users
 
 Here comes the sqlite3 example to display the conflict result:<br>
 ```
@@ -113,5 +132,5 @@ We also provide some tools for synchronization in Shake series.<br>
 * [RedisShake](https://github.com/aliyun/RedisShake): redis data synchronization tool.
 * [RedisFullCheck](https://github.com/aliyun/RedisFullCheck): redis data synchronization verification tool.
 
-Plus, we have a DingDing(钉钉) group so that users can join and discuss, please scan the code.
+Plus, we have a DingDing（钉钉） group so that users can join and discuss, please scan the code.
 ![DingDing](resources/dingding_group.png)<br>

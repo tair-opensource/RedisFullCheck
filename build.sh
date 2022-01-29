@@ -17,9 +17,6 @@ branch=$branch","$cid
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-GOPATH=$(pwd)
-export GOPATH
-
 info="main.VERSION=$branch"
 # golang version
 goversion=$(go version | awk -F' ' '{print $3;}')
@@ -50,5 +47,5 @@ run_builder='go build -v'
 #echo "all build successfully!"
 
 
-$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "./src/full_check/"
+$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "main.go"
 echo "build successfully!"

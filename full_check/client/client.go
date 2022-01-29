@@ -9,7 +9,7 @@ import (
 	"time"
 	"errors"
 
-	"full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
 
 	"github.com/garyburd/redigo/redis"
 	redigoCluster "github.com/vinllen/redis-go-cluster"

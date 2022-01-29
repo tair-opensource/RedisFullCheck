@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"full_check/common"
-	"full_check/metric"
-	"full_check/checker"
-	"full_check/configure"
-	"full_check/client"
+	"github.com/alibaba/RedisFullCheck/full_check/checker"
+	"github.com/alibaba/RedisFullCheck/full_check/client"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/configure"
+	"github.com/alibaba/RedisFullCheck/full_check/metric"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -232,12 +232,12 @@ func (p *FullCheck) Start() {
 		panic(common.Logger.Critical(err))
 	}
 
-	common.Logger.Infof("sourceDbType=%v, p.sourcePhysicalDBList=%v", p.FullCheckParameter.SourceHost.DBType,
+	common.Logger.Infof("sourceDbType=%v, p.sourcePhysicalDBList=%v", p.SourceHost.DBType,
 		p.sourcePhysicalDBList)
 
 	sourceClient.Close()
 	for db, keyNum := range p.sourceLogicalDBMap {
-		if p.SourceHost.IsCluster() == true {
+		if p.SourceHost.IsCluster() {
 			common.Logger.Infof("db=%d:keys=%d(inaccurate for type cluster)", db, keyNum)
 		} else {
 			common.Logger.Infof("db=%d:keys=%d", db, keyNum)

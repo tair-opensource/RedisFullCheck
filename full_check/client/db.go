@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"fmt"
 
-	"full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
 
 	"github.com/garyburd/redigo/redis"
 )
