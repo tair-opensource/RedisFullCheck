@@ -1,10 +1,10 @@
 package checker
 
 import (
-	"full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
 	"bytes"
-	"full_check/metric"
-	"full_check/client"
+	"github.com/alibaba/RedisFullCheck/full_check/metric"
+	"github.com/alibaba/RedisFullCheck/full_check/client"
 	"strconv"
 	"reflect"
 	"math"

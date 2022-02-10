@@ -4,7 +4,7 @@ import (
 	"strings"
 	"fmt"
 
-	"full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
 )
 
 const (

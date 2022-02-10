@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"full_check/configure"
-	"full_check/full_check"
-	"full_check/checker"
-	"full_check/client"
-	"full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/configure"
+	"github.com/alibaba/RedisFullCheck/full_check/full_check"
+	"github.com/alibaba/RedisFullCheck/full_check/checker"
+	"github.com/alibaba/RedisFullCheck/full_check/client"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/gugemichael/nimo4go"

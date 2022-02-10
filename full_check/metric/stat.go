@@ -1,7 +1,7 @@
 package metric
 
 import (
-	"full_check/common"
+	"github.com/alibaba/RedisFullCheck/full_check/common"
 )
 
 type Stat struct {

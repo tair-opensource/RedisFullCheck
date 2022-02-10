@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 set -o errexit
-
+export GOARCH=amd64
+export CGO_ENABLED=1
 # older version Git don't support --short !
 if [ -d ".git" ];then
     #branch=`git symbolic-ref --short -q HEAD`
@@ -16,9 +17,6 @@ branch=$branch","$cid
 # make sure we're in the directory where the script lives
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-
-GOPATH=$(pwd)
-export GOPATH
 
 info="main.VERSION=$branch"
 # golang version
@@ -40,15 +38,16 @@ rm -rf ${output}
 echo "[ BUILD RELEASE ]"
 run_builder='go build -v'
 #goos=(windows darwin linux)
-#for g in "${goos[@]}"; do
-#    export GOOS=$g
-#    echo "try build goos=$g"
-#    $run_builder -ldflags "-X $info" -o "$output/redis-full-check.$g" "./src/full_check/"
-#    echo "build successfully!"
-#done
+goos=(darwin linux)
+for g in "${goos[@]}"; do
+    export GOOS=$g
+    echo "try build goos=$g"
+    $run_builder -ldflags "-X $info" -o "$output/redis-full-check.$g" "main.go"
+    echo "build successfully!"
+done
 
-#echo "all build successfully!"
+echo "all build successfully!"
 
 
-$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "./src/full_check/"
-echo "build successfully!"
+#$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "main.go"
+#echo "build successfully!"
