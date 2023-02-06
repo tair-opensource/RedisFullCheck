@@ -43,10 +43,10 @@ Usage:
 
 Application Options:
   -s, --source=SOURCE               Set host:port of source redis.
-  -p, --sourcepassword=Password     Set source redis password
+  -p, --sourcepassword=Password     Set source redis password (format: password or username:password)
       --sourceauthtype=AUTH-TYPE    useless for opensource redis, valid value:auth/adminauth (default: auth)
   -t, --target=TARGET               Set host:port of target redis.
-  -a, --targetpassword=Password     Set target redis password
+  -a, --targetpassword=Password     Set target redis password (format: password or username:password)
       --targetauthtype=AUTH-TYPE    useless for opensource redis, valid value:auth/adminauth (default: auth)
   -d, --db=Sqlite3-DB-FILE          sqlite3 db file for store result. If exist, it will be removed and a new file is created. (default: result.db)
       --comparetimes=COUNT          Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison

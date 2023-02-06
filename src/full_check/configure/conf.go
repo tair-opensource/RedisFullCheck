@@ -2,12 +2,12 @@ package conf
 
 var Opts struct {
 	SourceAddr         string `short:"s" long:"source" value-name:"SOURCE"  description:"Set host:port of source redis. If db type is cluster, split by semicolon(;'), e.g., 10.1.1.1:1000;10.2.2.2:2000;10.3.3.3:3000. We also support auto-detection, so \"master@10.1.1.1:1000\" or \"slave@10.1.1.1:1000\" means choose master or slave. Only need to give a role in the master or slave."`
-	SourcePassword     string `short:"p" long:"sourcepassword" value-name:"Password" description:"Set source redis password"`
+	SourcePassword     string `short:"p" long:"sourcepassword" value-name:"Password" description:"Set source redis password (format: password or username:password)"`
 	SourceAuthType     string `long:"sourceauthtype" value-name:"AUTH-TYPE" default:"auth" description:"useless for opensource redis, valid value:auth/adminauth" `
 	SourceDBType       int    `long:"sourcedbtype" default:"0" description:"0: db, 1: cluster 2: aliyun proxy, 3: tencent proxy"`
 	SourceDBFilterList string `long:"sourcedbfilterlist" default:"-1" description:"db white list that need to be compared, -1 means fetch all, \"0;5;15\" means fetch db 0, 5, and 15"`
 	TargetAddr         string `short:"t" long:"target" value-name:"TARGET"  description:"Set host:port of target redis. If db type is cluster, split by semicolon(;'), e.g., 10.1.1.1:1000;10.2.2.2:2000;10.3.3.3:3000. We also support auto-detection, so \"master@10.1.1.1:1000\" or \"slave@10.1.1.1:1000\" means choose master or slave. Only need to give a role in the master or slave."`
-	TargetPassword     string `short:"a" long:"targetpassword" value-name:"Password" description:"Set target redis password"`
+	TargetPassword     string `short:"a" long:"targetpassword" value-name:"Password" description:"Set target redis password (format: password or username:password)"`
 	TargetAuthType     string `long:"targetauthtype" value-name:"AUTH-TYPE" default:"auth" description:"useless for opensource redis, valid value:auth/adminauth" `
 	TargetDBType       int    `long:"targetdbtype" default:"0" description:"0: db, 1: cluster 2: aliyun proxy 3: tencent proxy"`
 	TargetDBFilterList string `long:"targetdbfilterlist" default:"-1" description:"db white list that need to be compared, -1 means fetch all, \"0;5;15\" means fetch db 0, 5, and 15"`
