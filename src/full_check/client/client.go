@@ -11,8 +11,8 @@ import (
 
 	"full_check/common"
 
-	"github.com/garyburd/redigo/redis"
-	redigoCluster "github.com/vinllen/redis-go-cluster"
+	"github.com/gomodule/redigo/redis"
+	redigoCluster "github.com/najoast/redis-go-cluster"
 	"reflect"
 )
 
@@ -118,8 +118,11 @@ func (p *RedisClient) Connect() error {
 	}
 
 	if len(p.redisHost.Password) != 0 {
-		_, err = p.conn.Do(p.redisHost.Authtype, p.redisHost.Password)
-		if err != nil {
+		var args []interface{}
+		for _, arg := range strings.Split(p.redisHost.Password, ":") {
+			args = append(args, arg)
+		}
+		if _, err := p.conn.Do(p.redisHost.Authtype, args...); err != nil {
 			return err
 		}
 	}
