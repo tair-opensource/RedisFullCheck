@@ -2,6 +2,8 @@
 
 set -o errexit
 
+MODULE_NAME=$(grep module src/full_check/go.mod |cut -d ' ' -f 2)
+
 # older version Git don't support --short !
 if [ -d ".git" ];then
     #branch=`git symbolic-ref --short -q HEAD`
@@ -34,7 +36,7 @@ fi
 t=$(date "+%Y-%m-%d_%H:%M:%S")
 info=$info","$t
 
-output=./bin/
+output=$(pwd)/bin/
 rm -rf ${output}
 
 echo "[ BUILD RELEASE ]"
@@ -49,6 +51,6 @@ run_builder='go build -v'
 
 #echo "all build successfully!"
 
-
-$run_builder -ldflags "-X $info" -o "$output/redis-full-check" "./src/full_check/"
+cd src/full_check
+$run_builder -ldflags "-X $info" -o "$output/redis-full-check"
 echo "build successfully!"

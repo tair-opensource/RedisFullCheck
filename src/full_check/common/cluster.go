@@ -1,8 +1,8 @@
 package common
 
 import (
-	redigoCluster "github.com/vinllen/redis-go-cluster"
-	redigo "github.com/garyburd/redigo/redis"
+	redigoCluster "github.com/najoast/redis-go-cluster"
+	redigo "github.com/gomodule/redigo/redis"
 )
 
 const(
