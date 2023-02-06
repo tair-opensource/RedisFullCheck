@@ -9,7 +9,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/jinzhu/copier v0.3.5
 	github.com/mattn/go-sqlite3 v1.14.16
-	github.com/najoast/redis-go-cluster v1.0.0
+	github.com/vinllen/redis-go-cluster v1.0.0
 	github.com/stretchr/testify v1.8.1
 )
 
