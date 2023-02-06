@@ -1,3 +1,8 @@
+2023-02-06 Alibaba Cloud.
+	* VERSION: 1.4.9
+	* IMRPOVE: sourcepassword and targetpassword can contain
+	username, format: username:password.
+	* IMPORVE: use go modules.
 2020-02-13 Alibaba Cloud.
 	* VERSION: 1.4.8
 	* BUGFIX: fetch newest redis-go-cluster driver which solve MOVED problem
