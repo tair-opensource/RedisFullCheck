@@ -2,7 +2,7 @@
 
 set -o errexit
 
-MODULE_NAME=$(grep module src/full_check/go.mod |cut -d ' ' -f 2)
+fullcheckVersion=$(cat ChangeLog | head -n 2 | grep VERSION | awk '{print $3}')
 
 # older version Git don't support --short !
 if [ -d ".git" ];then
@@ -41,15 +41,19 @@ rm -rf ${output}
 
 echo "[ BUILD RELEASE ]"
 run_builder='go build -v'
+
+#cd src/full_check
 #goos=(windows darwin linux)
 #for g in "${goos[@]}"; do
 #    export GOOS=$g
 #    echo "try build goos=$g"
-#    $run_builder -ldflags "-X $info" -o "$output/redis-full-check.$g" "./src/full_check/"
+#    $run_builder -ldflags "-X $info" -o "$output/redis-full-check.$g"
+#    unset GOOS
 #    echo "build successfully!"
 #done
-
-#echo "all build successfully!"
+#cp $output/../ChangeLog $output
+#cd $output
+#tar -cvzf redis-full-check-"$fullcheckVersion".tar.gz redis-full-check.darwin redis-full-check.linux redis-full-check.windows ChangeLog
 
 cd src/full_check
 $run_builder -ldflags "-X $info" -o "$output/redis-full-check"
