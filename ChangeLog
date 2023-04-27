@@ -1,3 +1,6 @@
+2023-04-27 Alibaba Cloud.
+    * VERSION: 1.4.10
+    * BUGFIX: Fix CGO_ENABLED=0 error
 2023-02-06 Alibaba Cloud.
 	* VERSION: 1.4.9
 	* IMRPOVE: sourcepassword and targetpassword can contain
