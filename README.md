@@ -111,3 +111,7 @@ We also provide some tools for synchronization in Shake series.<br>
 * [MongoShake](https://github.com/aliyun/MongoShake): mongodb data synchronization tool.
 * [RedisShake](https://github.com/aliyun/RedisShake): redis data synchronization tool.
 * [RedisFullCheck](https://github.com/aliyun/RedisFullCheck): redis data synchronization verification tool.
+
+# License
+- On `20230427` and later, we distribute this library under the new [Apache2.0](https://www.apache.org/licenses/LICENSE-2.0) protocol, `1.4.10` is the first version to support the Apache2.0 protocol.
+- Prior to 20230427, it was distributed under the [GPLV3.0](https://www.gnu.org/licenses/gpl-3.0.html) protocol.
