@@ -12,7 +12,7 @@ import (
 	"full_check/common"
 
 	"github.com/gomodule/redigo/redis"
-	redigoCluster "github.com/najoast/redis-go-cluster"
+	redigoCluster "github.com/macgngsta/redis-go-cluster"
 	"reflect"
 )
 
@@ -92,10 +92,10 @@ func (p *RedisClient) Connect() error {
 	if p.redisHost.IsCluster() == false {
 		// single db or proxy
 		if p.redisHost.TimeoutMs == 0 {
-			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0])
+			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0], redis.DialUseTLS(true))
 		} else {
-			p.conn, err = redis.DialTimeout("tcp", p.redisHost.Addr[0], time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
-				time.Millisecond*time.Duration(p.redisHost.TimeoutMs), time.Millisecond*time.Duration(p.redisHost.TimeoutMs))
+			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0], redis.DialConnectTimeout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)),
+				redis.DialReadTimeout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)), redis.DialWriteTimout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)), redis.DialUseTLS(true))
 		}
 	} else {
 		// cluster

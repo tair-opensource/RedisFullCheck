@@ -1,7 +1,7 @@
 package common
 
 import (
-	redigoCluster "github.com/najoast/redis-go-cluster"
+	redigoCluster "github.com/macgngsta/redis-go-cluster"
 	redigo "github.com/gomodule/redigo/redis"
 )
 
