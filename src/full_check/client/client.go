@@ -95,7 +95,7 @@ func (p *RedisClient) Connect() error {
 			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0], redis.DialUseTLS(true))
 		} else {
 			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0], redis.DialConnectTimeout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)),
-				redis.DialReadTimeout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)), redis.DialWriteTimout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)), redis.DialUseTLS(true))
+				redis.DialReadTimeout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)), redis.DialWriteTimeout(time.Millisecond*time.Duration(p.redisHost.TimeoutMs)), redis.DialUseTLS(true))
 		}
 	} else {
 		// cluster
