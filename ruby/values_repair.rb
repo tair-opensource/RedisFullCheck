@@ -27,53 +27,59 @@ target_memdb = Redis::Cluster.new(nodes: [target_memorydb_endpoint] ,reconnect_a
 
 Benchmark.bm do |benchmark|
 
-  db = SQLite3::Database.open PATH_TO_SQL_DB
-  db.results_as_hash = true
+  begin
+    db = SQLite3::Database.open PATH_TO_SQL_DB
+    db.results_as_hash = true
 
-  # 1. repair string values
-  benchmark.report("Repair Strings") do
-    results = db.query "SELECT key where type = 'string' from key"
+    # 1. repair string values
+    benchmark.report("Repair Strings") do
+      results = db.query "SELECT key where type = 'string' from key"
 
-    results.each_slice(SLICE_SIZE) do |slice|
-      keys = slice.each {|r| r["key"]}
-      elasticache_vals = source_elasticache.mget(*keys)
-      # zip and flatten so in the order of 'k1', 'v1', 'k2', 'v2'
-      mset_args = keys.zip(elasticache_vals).flatten
-      # set memdb value as
-      memdb.mset(mset_args) unless dryrun
+      results.each_slice(SLICE_SIZE) do |slice|
+        keys = slice.each {|r| r["key"]}
+        elasticache_vals = source_elasticache.mget(*keys)
+        # zip and flatten so in the order of 'k1', 'v1', 'k2', 'v2'
+        mset_args = keys.zip(elasticache_vals).flatten
+        # set memdb value as
+        memdb.mset(mset_args) unless dryrun
+      end
     end
-  end
 
-  # 2. repair set values
-  benchmark.report("Repair Values") do
-    set_results = db.query "SELECT key where type = set from key"
+    # 2. repair set values
+    benchmark.report("Repair Values") do
+      set_results = db.query "SELECT key where type = set from key"
 
-    set_results.each do |row|
-      k = row["key"]
-      set_members = source_elasticache.smembers(k)
-      # remove and re-add the set members to the k
-      unless dryrun
-        memdb.multi do |multi|
-          multi.del(k) 
-          multi.sadd(k, set_members)
+      set_results.each do |row|
+        k = row["key"]
+        set_members = source_elasticache.smembers(k)
+        # remove and re-add the set members to the k
+        unless dryrun
+          memdb.multi do |multi|
+            multi.del(k) 
+            multi.sadd(k, set_members)
+          end
         end
       end
     end
-  end
 
-  # 3. repair set values
-  benchmark.report("Repair Sets") do
-    hash_results = db.query "SELECT key where type = hash from key"
-    hash_results.each do |row|
-      k = row["key"]
-      hval = elasticache.hgetall(k)
-      # set memdb value as the hash value of k
-      unless dryrun
-        memdb.multi do |multi|
-          multi.del(k) 
-          multi.hset(k, hval)
+    # 3. repair set values
+    benchmark.report("Repair Sets") do
+      hash_results = db.query "SELECT key where type = hash from key"
+      hash_results.each do |row|
+        k = row["key"]
+        hval = elasticache.hgetall(k)
+        # set memdb value as the hash value of k
+        unless dryrun
+          memdb.multi do |multi|
+            multi.del(k) 
+            multi.hset(k, hval)
+          end
         end
       end
     end
+  rescue SQLite3::Exception => e
+    p "Error opening database: #{e}"
+  ensure
+    db.close if db
   end
 end
