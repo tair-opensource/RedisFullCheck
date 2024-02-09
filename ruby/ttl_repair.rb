@@ -6,6 +6,7 @@ require "redis-clustering"
 require "benchmark"
 
 BATCH_SIZE = 100
+LATENCY_BUFFER = 100
 
 p "source redis endpoint:"
 source_redis_endpoint = STDIN.noecho(&:gets).chomp
@@ -31,24 +32,28 @@ p Benchmark.measure do
     cursor, keys = target_memdb.scan(cursor, count: BATCH_SIZE, type: "string")
 
     # bulk get TTL of keys from memdb
-    memdb_ttl_values = target_memdb.pipelined do |pipelined|
-      keys.each {|k| pipelined.ttl(k)}
+    memdb_exp_values = target_memdb.pipelined do |pipelined|
+      #keys.each {|k| pipelined.pexpiretime(k)}
+      keys.each {|k| pipelined.send_command([:pexpiretime,k])}
     end
 
     # bulk get TTL / expiretime of keys from elasticache
-    e_ttl_values = source_elasticache.pipelined do |pipelined|
-      keys.each {|k| pipelined.ttl(k)}
+    e_exp_values = source_elasticache.pipelined do |pipelined|
+      #keys.each {|k| pipelined.pexpiretime(k)}
+      keys.each {|k| pipelined.send_command([:pexpiretime,k])}
     end
 
     # bulk update expiretime for any differences
     target_memdb.pipelined do |pipelined|
-      memdb_ttl_values.each_with_index do |memdb_ttl_val, i|
-        e_val = e_ttl_values[i]
-        if (memdb_ttl_val != e_val) && (e_val != -2)
-          p "ttl values do not match!"
-          pipelined.expire(keys[i], e_val) unless dryrun
-          updated_keys << { key: keys[i], old_value: memdb_ttl_val, new_value: e_val }
-        end
+      memdb_exp_values.each_with_index do |memdb_val, i|
+        e_val = e_exp_values[i]
+
+        p "e_exp: #{e_val} memdb_exp: #{memdb_val}"
+        if((memdb_val-e_val).abs > LATENCY_BUFFER)
+          p "exp values do not match!"
+          #pipelined.pexpireat(keys[i], e_val) unless dryrun
+          pipelined.send_command([:pexpireat, keys[i], e_val]) unless dryrun
+          updated_keys << { key: keys[i], old_value: memdb_val, new_value: e_val }
       end
     end
 
