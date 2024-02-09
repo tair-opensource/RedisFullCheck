@@ -25,6 +25,8 @@ target_memdb = Redis::Cluster.new(nodes: [target_memorydb_endpoint] ,reconnect_a
 # call RedisFullCheck
 # cmd = `../RedisFullCheck/bin/redis-full-check -s #{source_redis_endpoint} -p #{source_redis_pwd} -t #{targete_redis_endpoint} -a #{target_redis_auth} --targetdbtype=1 --comparemode=2 --comparetimes=3`
 
+count_outcomes = []
+
 Benchmark.bm do |benchmark|
 
   begin
@@ -43,6 +45,8 @@ Benchmark.bm do |benchmark|
         # set memdb value as
         memdb.mset(mset_args) unless dryrun
       end
+
+      count_outcomes.push(results.size)
     end
 
     # 2. repair set values
@@ -55,11 +59,13 @@ Benchmark.bm do |benchmark|
         # remove and re-add the set members to the k
         unless dryrun
           memdb.multi do |multi|
-            multi.del(k) 
+            multi.del(k)
             multi.sadd(k, set_members)
           end
         end
       end
+
+      count_outcomes.push(set_results.size)
     end
 
     # 3. repair set values
@@ -71,15 +77,24 @@ Benchmark.bm do |benchmark|
         # set memdb value as the hash value of k
         unless dryrun
           memdb.multi do |multi|
-            multi.del(k) 
+            multi.del(k)
             multi.hset(k, hval)
           end
         end
       end
+
+      count_outcomes.push(hash_results.size)
     end
+
   rescue SQLite3::Exception => e
     p "Error opening database: #{e}"
   ensure
     db.close if db
   end
 end
+
+p ""
+p "#{Time.now()} FINISHED"
+p "number of Strings repaired if not dryrun: #{count_outcomes[0]}"
+p "number of Sets repaired if not dryrun: #{count_outcomes[1]}"
+p "number of Hashes repaired if not dryrun: #{count_outcomes[2]}"

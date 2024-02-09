@@ -23,9 +23,11 @@ cursor = 0
 updated_keys = []
 scanned_keys = 0
 
+p "#{Time.now()} START"
+
 p Benchmark.measure do
   loop do
-    p "#{Time.now()} START LOOP - cursor: #{cursor}"
+    p "#{Time.now()} cursor: #{cursor}"
     cursor, keys = target_memdb.scan(cursor, count: BATCH_SIZE, type: "string")
 
     # bulk get TTL of keys from memdb
@@ -51,14 +53,14 @@ p Benchmark.measure do
     end
 
     scanned_keys += keys.size
-    p "now scanned: #{scanned_keys}!\n"
+    p "#{Time.now()} now scanned: #{scanned_keys}!\n"
 
     break if cursor == "0"
   end
 end
 
 p ""
-p "FINISHED"
+p "#{Time.now()} FINISHED"
 p "number of keys scanned: #{scanned_keys}"
 p "number of key TTLs updated if not dryrun: #{updated_keys.size}"
 p updated_keys
