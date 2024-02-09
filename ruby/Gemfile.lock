@@ -1,0 +1,40 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    connection_pool (2.4.1)
+    io-console (0.7.2)
+    redis (5.0.8)
+      redis-client (>= 0.17.0)
+    redis-client (0.19.1)
+      connection_pool
+    redis-cluster-client (0.7.5)
+      redis-client (~> 0.12)
+    redis-clustering (5.0.8)
+      redis (= 5.0.8)
+      redis-cluster-client (>= 0.7.0)
+    sqlite3 (1.7.2)
+      mini_portile2 (~> 2.8.0)
+    sqlite3 (1.7.2-aarch64-linux)
+    sqlite3 (1.7.2-arm-linux)
+    sqlite3 (1.7.2-arm64-darwin)
+    sqlite3 (1.7.2-x86-linux)
+    sqlite3 (1.7.2-x86_64-darwin)
+    sqlite3 (1.7.2-x86_64-linux)
+
+PLATFORMS
+  aarch64-linux
+  arm-linux
+  arm64-darwin
+  ruby
+  x86-linux
+  x86_64-darwin
+  x86_64-linux
+
+DEPENDENCIES
+  io-console
+  redis (~> 5.0)
+  redis-clustering (~> 5.0)
+  sqlite3 (~> 1.6)
+
+BUNDLED WITH
+   2.5.1
