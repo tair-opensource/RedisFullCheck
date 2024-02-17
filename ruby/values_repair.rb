@@ -35,7 +35,7 @@ Benchmark.bm do |benchmark|
 
     # 1. repair string values
     benchmark.report("Repair Strings") do
-      results = db.query "SELECT key where type = 'string' from key"
+      results = db.query "select key from key where type = 'string';"
 
       results.each_slice(SLICE_SIZE) do |slice|
         keys = slice.each {|r| r["key"]}
@@ -51,7 +51,7 @@ Benchmark.bm do |benchmark|
 
     # 2. repair set values
     benchmark.report("Repair Values") do
-      set_results = db.query "SELECT key where type = set from key"
+      set_results = db.query "select key from key where type = 'set';"
 
       set_results.each do |row|
         k = row["key"]
@@ -70,7 +70,7 @@ Benchmark.bm do |benchmark|
 
     # 3. repair set values
     benchmark.report("Repair Sets") do
-      hash_results = db.query "SELECT key where type = hash from key"
+      hash_results = db.query "select key from key where type = 'hash';"
       hash_results.each do |row|
         k = row["key"]
         hval = elasticache.hgetall(k)
