@@ -8,7 +8,7 @@ require "sqlite3"
 require "benchmark"
 
 SLICE_SIZE = 10
-PATH_TO_SQL_DB = "../../RedisFullCheck/result.db.3"
+PATH_TO_SQL_DB = "../result.db.3"
 
 p "source redis endpoint:"
 source_redis_endpoint = STDIN.noecho(&:gets).chomp
