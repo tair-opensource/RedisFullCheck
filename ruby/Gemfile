@@ -4,6 +4,6 @@ source 'https://rubygems.org'
 
 gem 'benchmark'
 gem 'io-console'
-gem 'redis'
+gem 'redis', '5.1.0'
 gem 'redis-clustering'
 gem 'sqlite3'

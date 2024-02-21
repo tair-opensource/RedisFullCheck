@@ -1,16 +1,18 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    benchmark (0.3.0)
     connection_pool (2.4.1)
     io-console (0.7.2)
-    redis (5.0.8)
+    mini_portile2 (2.8.5)
+    redis (5.1.0)
       redis-client (>= 0.17.0)
-    redis-client (0.19.1)
+    redis-client (0.20.0)
       connection_pool
     redis-cluster-client (0.7.5)
       redis-client (~> 0.12)
-    redis-clustering (5.0.8)
-      redis (= 5.0.8)
+    redis-clustering (5.1.0)
+      redis (= 5.1.0)
       redis-cluster-client (>= 0.7.0)
     sqlite3 (1.7.2)
       mini_portile2 (~> 2.8.0)
@@ -31,10 +33,11 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  benchmark
   io-console
-  redis (~> 5.0)
-  redis-clustering (~> 5.0)
-  sqlite3 (~> 1.6)
+  redis (= 5.1.0)
+  redis-clustering
+  sqlite3
 
 BUNDLED WITH
    2.5.1

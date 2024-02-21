@@ -33,14 +33,12 @@ p Benchmark.measure do
 
     # bulk get TTL of keys from memdb
     memdb_exp_values = target_memdb.pipelined do |pipelined|
-      #keys.each {|k| pipelined.pexpiretime(k)}
-      keys.each {|k| pipelined.call([:pexpiretime, k])}
+      keys.each {|k| pipelined.pexpiretime(k)}
     end
 
     # bulk get TTL / expiretime of keys from elasticache
     e_exp_values = source_elasticache.pipelined do |pipelined|
-      #keys.each {|k| pipelined.pexpiretime(k)}
-      keys.each {|k| pipelined.call([:pexpiretime, k])}
+      keys.each {|k| pipelined.pexpiretime(k)}
     end
 
     # bulk update expiretime for any differences
@@ -51,8 +49,8 @@ p Benchmark.measure do
         p "e_exp: #{e_val} memdb_exp: #{memdb_val}"
         if((memdb_val-e_val).abs > LATENCY_BUFFER)
           p "exp values do not match!"
-          #pipelined.pexpireat(keys[i], e_val) unless dryrun
-          pipelined.call([:pexpireat, keys[i], e_val]) unless dryrun
+          pipelined.pexpireat(keys[i], e_val) unless dryrun
+
           updated_keys << { key: keys[i], old_value: memdb_val, new_value: e_val }
       end
     end
