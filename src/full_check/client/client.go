@@ -237,6 +237,7 @@ begin:
 				if strings.HasPrefix(err.Error(), specialErrorPrefix) {
 					// this error means the type between initial 'scan' and the following round comparison
 					// is different. we should marks this.
+					common.Logger.Errorf("receive command[%v] failed with type change error[%v]", commands[i], err)
 					result[i] = common.TypeChanged
 					continue
 				}
@@ -272,6 +273,7 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 			} else {
 				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type string[%v]",
 					printCombinList(commands), ele, reflect.TypeOf(ele))
+				common.Logger.Errorf("ret full return values: %+v", ret)
 				common.Logger.Error(err)
 				return nil, err
 			}
