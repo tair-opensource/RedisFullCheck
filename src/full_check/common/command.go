@@ -67,19 +67,16 @@ func ParseClusterNode(content []byte) []*ClusterNodeInfo {
 			continue
 		}
 
-		items := bytes.Split(line, []byte(" "))
+		items := bytes.Fields(line)
+		if len(items) < 8 {
+			continue
+		}
 
 		address := bytes.Split(items[1], []byte{'@'})
-		flag := bytes.Split(items[2], []byte{','})
-		var role string
-		if len(flag) > 1 {
-			role = string(flag[1])
-		} else {
-			role = string(flag[0])
-		}
+		role := parseClusterNodeRole(items[2])
 		var slot string
-		if len(items) > 7 {
-			slot = string(items[7])
+		if len(items) > 8 {
+			slot = string(items[8])
 		}
 		ret = append(ret, &ClusterNodeInfo{
 			Id:          string(items[0]),
@@ -96,13 +93,27 @@ func ParseClusterNode(content []byte) []*ClusterNodeInfo {
 	return ret
 }
 
+func parseClusterNodeRole(flags []byte) string {
+	parts := bytes.Split(flags, []byte{','})
+	for _, part := range parts {
+		if bytes.Equal(part, []byte(TypeMaster)) || bytes.Equal(part, []byte(TypeSlave)) {
+			return string(part)
+		}
+	}
+
+	if len(parts) > 0 {
+		return string(parts[0])
+	}
+	return ""
+}
+
 // needMaster: true(master), false(slave)
 func ClusterNodeChoose(input []*ClusterNodeInfo, role string) []*ClusterNodeInfo {
 	ret := make([]*ClusterNodeInfo, 0, len(input))
 	for _, ele := range input {
 		if ele.Flags == TypeMaster && role == TypeMaster ||
-				ele.Flags == TypeSlave && role == TypeSlave ||
-				role == TypeAll {
+			ele.Flags == TypeSlave && role == TypeSlave ||
+			role == TypeAll {
 			ret = append(ret, ele)
 		}
 	}
