@@ -1,19 +1,19 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	"full_check/common"
 
 	"github.com/gomodule/redigo/redis"
-	redigoCluster "github.com/najoast/redis-go-cluster"
-	"reflect"
+	redigoCluster "github.com/tasszz2k/redis-go-cluster"
 )
 
 var (
@@ -94,8 +94,13 @@ func (p *RedisClient) Connect() error {
 		if p.redisHost.TimeoutMs == 0 {
 			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0])
 		} else {
-			p.conn, err = redis.DialTimeout("tcp", p.redisHost.Addr[0], time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
-				time.Millisecond*time.Duration(p.redisHost.TimeoutMs), time.Millisecond*time.Duration(p.redisHost.TimeoutMs))
+			p.conn, err = redis.DialTimeout(
+				"tcp",
+				p.redisHost.Addr[0],
+				time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
+				time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
+				time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
+			)
 		}
 	} else {
 		// cluster
@@ -108,7 +113,8 @@ func (p *RedisClient) Connect() error {
 				KeepAlive:    16,
 				AliveTime:    60 * time.Second,
 				Password:     p.redisHost.Password,
-			})
+			},
+		)
 		if err == nil {
 			p.conn = common.NewClusterConn(cluster, 0)
 		}
@@ -121,6 +127,10 @@ func (p *RedisClient) Connect() error {
 		var args []interface{}
 		for _, arg := range strings.Split(p.redisHost.Password, ":") {
 			args = append(args, arg)
+		}
+		if p.conn == nil {
+
+			return fmt.Errorf("connect host[%v] failed: unknown", p.redisHost.Addr)
 		}
 		if _, err := p.conn.Do(p.redisHost.Authtype, args...); err != nil {
 			return err
@@ -179,7 +189,7 @@ type combine struct {
 }
 
 func (c combine) String() string {
-	all := make([]string, 0, len(c.params) + 1)
+	all := make([]string, 0, len(c.params)+1)
 	all = append(all, c.command)
 	for _, ele := range c.params {
 		all = append(all, string(ele.([]byte)))
@@ -187,7 +197,10 @@ func (c combine) String() string {
 	return strings.Join(all, " ")
 }
 
-func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix string) ([]interface{}, error) {
+func (p *RedisClient) PipeRawCommand(commands []combine, specialErrorPrefix string) (
+	[]interface{},
+	error,
+) {
 	if len(commands) == 0 {
 		common.Logger.Warnf("input commands length is 0")
 		return nil, emptyError
@@ -270,8 +283,10 @@ func (p *RedisClient) PipeTypeCommand(keyInfo []*common.Key) ([]string, error) {
 			if v, ok := ele.(string); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type string[%v]",
-					printCombinList(commands), ele, reflect.TypeOf(ele))
+				err := fmt.Errorf(
+					"run PipeRawCommand with commands[%s] return element[%v] isn't type string[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele),
+				)
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -299,8 +314,10 @@ func (p *RedisClient) PipeExistsCommand(keyInfo []*common.Key) ([]int64, error) 
 			if v, ok := ele.(int64); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
-					printCombinList(commands), ele, reflect.TypeOf(ele))
+				err := fmt.Errorf(
+					"run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele),
+				)
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -328,8 +345,10 @@ func (p *RedisClient) PipeLenCommand(keyInfo []*common.Key) ([]int64, error) {
 			if v, ok := ele.(int64); ok {
 				result[i] = v
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
-					printCombinList(commands), ele, reflect.TypeOf(ele))
+				err := fmt.Errorf(
+					"run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele),
+				)
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -357,8 +376,10 @@ func (p *RedisClient) PipeTTLCommand(keyInfo []*common.Key) ([]bool, error) {
 			if v, ok := ele.(int64); ok {
 				result[i] = v == 0
 			} else {
-				err := fmt.Errorf("run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
-					printCombinList(commands), ele, reflect.TypeOf(ele))
+				err := fmt.Errorf(
+					"run PipeRawCommand with commands[%s] return element[%v] isn't type int64[%v]",
+					printCombinList(commands), ele, reflect.TypeOf(ele),
+				)
 				common.Logger.Error(err)
 				return nil, err
 			}
@@ -443,7 +464,10 @@ func (p *RedisClient) PipeZscoreCommand(key []byte, field [][]byte) ([]interface
 	}
 }
 
-func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Key, onceScanCount int) (map[string][]byte, error) {
+func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(
+	oneKeyInfo *common.Key,
+	onceScanCount int,
+) (map[string][]byte, error) {
 	var scanCmd string
 	switch oneKeyInfo.Tp {
 	case common.HashKeyType:
@@ -465,14 +489,18 @@ func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Ke
 
 		replyList, ok := reply.([]interface{})
 		if ok == false || len(replyList) != 2 {
-			return nil, fmt.Errorf("%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.Key),
-				cursor, onceScanCount, reply)
+			return nil, fmt.Errorf(
+				"%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.Key),
+				cursor, onceScanCount, reply,
+			)
 		}
 
 		cursorBytes, ok := replyList[0].([]byte)
 		if ok == false {
-			return nil, fmt.Errorf("%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.Key),
-				cursor, onceScanCount, reply)
+			return nil, fmt.Errorf(
+				"%s %s %d count %d failed, result: %+v", scanCmd, string(oneKeyInfo.Key),
+				cursor, onceScanCount, reply,
+			)
 		}
 
 		cursor, err = strconv.Atoi(string(cursorBytes))
@@ -482,7 +510,14 @@ func (p *RedisClient) FetchValueUseScan_Hash_Set_SortedSet(oneKeyInfo *common.Ke
 
 		keylist, ok := replyList[1].([]interface{})
 		if ok == false {
-			panic(common.Logger.Criticalf("%s %s failed, result: %+v", scanCmd, string(oneKeyInfo.Key), reply))
+			panic(
+				common.Logger.Criticalf(
+					"%s %s failed, result: %+v",
+					scanCmd,
+					string(oneKeyInfo.Key),
+					reply,
+				),
+			)
 		}
 		switch oneKeyInfo.Tp {
 		case common.HashKeyType:

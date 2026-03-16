@@ -6,14 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	"full_check/configure"
-	"full_check/full_check"
 	"full_check/checker"
 	"full_check/client"
 	"full_check/common"
+	"full_check/configure"
+	"full_check/full_check"
 
-	"github.com/jessevdk/go-flags"
 	"github.com/gugemichael/nimo4go"
+	"github.com/jessevdk/go-flags"
 )
 
 var VERSION = "$"
@@ -66,28 +66,58 @@ func main() {
 
 	compareCount, err := strconv.Atoi(conf.Opts.CompareTimes)
 	if err != nil || compareCount < 1 {
-		panic(common.Logger.Errorf("invalid option cmpcount %s, expect int >=1", conf.Opts.CompareTimes))
+		panic(
+			common.Logger.Errorf(
+				"invalid option cmpcount %s, expect int >=1",
+				conf.Opts.CompareTimes,
+			),
+		)
 	}
 	if conf.Opts.Interval < 0 {
-		panic(common.Logger.Errorf("invalid option interval %d, expect int >=0", conf.Opts.Interval))
+		panic(
+			common.Logger.Errorf(
+				"invalid option interval %d, expect int >=0",
+				conf.Opts.Interval,
+			),
+		)
 	}
 	batchCount, err := strconv.Atoi(conf.Opts.BatchCount)
 	if err != nil || batchCount < 1 || batchCount > 10000 {
-		panic(common.Logger.Errorf("invalid option batchcount %s, expect int 1<=batchcount<=10000", conf.Opts.BatchCount))
+		panic(
+			common.Logger.Errorf(
+				"invalid option batchcount %s, expect int 1<=batchcount<=10000",
+				conf.Opts.BatchCount,
+			),
+		)
 	}
 	parallel := conf.Opts.Parallel
 	if parallel < 1 || parallel > 100 {
-		panic(common.Logger.Errorf("invalid option parallel %d, expect 1<=parallel<=100", conf.Opts.Parallel))
+		panic(
+			common.Logger.Errorf(
+				"invalid option parallel %d, expect 1<=parallel<=100",
+				conf.Opts.Parallel,
+			),
+		)
 	}
 	qps := conf.Opts.Qps
 	if qps < 1 || qps > 5000000 {
 		panic(common.Logger.Errorf("invalid option qps %d, expect 1<=qps<=5000000", conf.Opts.Qps))
 	}
 	if conf.Opts.SourceAuthType != "auth" && conf.Opts.SourceAuthType != "adminauth" {
-		panic(common.Logger.Errorf("invalid sourceauthtype %s, expect auth/adminauth", conf.Opts.SourceAuthType))
+		panic(
+			common.Logger.Errorf(
+				"invalid sourceauthtype %s, expect auth/adminauth",
+				conf.Opts.SourceAuthType,
+			),
+		)
 	}
 	if conf.Opts.TargetAuthType != "auth" && conf.Opts.TargetAuthType != "adminauth" {
-		panic(common.Logger.Errorf("invalid targetauthtype %s, expect auth/adminauth", conf.Opts.TargetAuthType))
+		panic(
+			common.Logger.Errorf(
+				"invalid targetauthtype %s, expect auth/adminauth",
+				conf.Opts.TargetAuthType,
+			),
+		)
 	}
 	if conf.Opts.CompareMode < full_check.FullValue || conf.Opts.CompareMode > full_check.FullValueWithOutline {
 		panic(common.Logger.Errorf("invalid compare mode %d", conf.Opts.CompareMode))
@@ -100,7 +130,11 @@ func main() {
 		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
 
-	sourceAddressList, err := client.HandleAddress(conf.Opts.SourceAddr, conf.Opts.SourcePassword, conf.Opts.SourceAuthType)
+	sourceAddressList, err := client.HandleAddress(
+		conf.Opts.SourceAddr,
+		conf.Opts.SourcePassword,
+		conf.Opts.SourceAuthType,
+	)
 	if err != nil {
 		panic(common.Logger.Errorf("source address[%v] illegal[%v]", conf.Opts.SourceAddr, err))
 	} else if len(sourceAddressList) > 1 && conf.Opts.SourceDBType != 1 {
@@ -109,7 +143,11 @@ func main() {
 		panic(common.Logger.Errorf("input source address is empty"))
 	}
 
-	targetAddressList, err := client.HandleAddress(conf.Opts.TargetAddr, conf.Opts.TargetPassword, conf.Opts.TargetAuthType)
+	targetAddressList, err := client.HandleAddress(
+		conf.Opts.TargetAddr,
+		conf.Opts.TargetPassword,
+		conf.Opts.TargetAuthType,
+	)
 	if err != nil {
 		panic(common.Logger.Errorf("target address[%v] illegal[%v]", conf.Opts.TargetAddr, err))
 	} else if len(targetAddressList) > 1 && conf.Opts.TargetDBType != 1 {
@@ -167,6 +205,9 @@ func main() {
 	common.Logger.Info("configuration: ", conf.Opts)
 	common.Logger.Info("---------")
 
-	fullCheck := full_check.NewFullCheck(fullCheckParameter, full_check.CheckType(conf.Opts.CompareMode))
+	fullCheck := full_check.NewFullCheck(
+		fullCheckParameter,
+		full_check.CheckType(conf.Opts.CompareMode),
+	)
 	fullCheck.Start()
 }

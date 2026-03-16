@@ -1,11 +1,11 @@
 package common
 
 import (
-	redigoCluster "github.com/najoast/redis-go-cluster"
 	redigo "github.com/gomodule/redigo/redis"
+	redigoCluster "github.com/tasszz2k/redis-go-cluster"
 )
 
-const(
+const (
 	RecvChanSize = 4096
 )
 
@@ -80,7 +80,11 @@ func (cc *ClusterConn) Flush() error {
 	retLength := len(ret)
 	availableSize := cap(cc.recvChan) - len(cc.recvChan)
 	if availableSize < retLength {
-		Logger.Warnf("available channel size[%v] less than current returned batch size[%v]", availableSize, retLength)
+		Logger.Warnf(
+			"available channel size[%v] less than current returned batch size[%v]",
+			availableSize,
+			retLength,
+		)
 	}
 	// Logger.Debugf("cluster flush batch with size[%v], return replies size[%v]", cc.batcher.GetBatchSize(), retLength)
 
@@ -96,6 +100,6 @@ func (cc *ClusterConn) Flush() error {
 
 // read recvChan
 func (cc *ClusterConn) Receive() (reply interface{}, err error) {
-	ret := <- cc.recvChan
+	ret := <-cc.recvChan
 	return ret.answer, ret.err
 }
