@@ -26,7 +26,7 @@ var Opts struct {
 	LogLevel           string `long:"loglevel" value-name:"LEVEL" description:"log level: 'debug', 'info', 'warn', 'error', default is 'info'"`
 	MetricPrint        bool   `long:"metric" value-name:"BOOL" description:"print metric in log"`
 	BigKeyThreshold    int64  `long:"bigkeythreshold" value-name:"COUNT" default:"16384"`
-	FilterList         string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by '|'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
-	SystemProfile      uint   `long:"systemprofile" value-name:"SYSTEM-PROFILE" default:"20445" description:"port that used to print golang inner head and stack message"`
+	FilterList         string `short:"f" long:"filterlist" value-name:"FILTER" default:"" description:"if the filter list isn't empty, all elements in list will be synced. The input should be split by ';'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' matches 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
+	BlockList          string `short:"b" long:"blocklist" value-name:"BLOCK" default:"" description:"if the block list isn't empty, all elements in list will be blocked. The input should be split by ';'. The end of the string is followed by a * to indicate a prefix match, otherwise it is a full match. e.g.: 'abc*|efg|m*' blocks 'abc', 'abc1', 'efg', 'm', 'mxyz', but 'efgh', 'p' aren't'"`
 	Version            bool   `short:"v" long:"version"`
 }

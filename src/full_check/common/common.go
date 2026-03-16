@@ -1,8 +1,8 @@
 package common
 
 import (
-	"github.com/cihub/seelog"
 	"fmt"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -38,6 +38,13 @@ var (
 func CheckFilter(filterTree *Trie, keyBytes []byte) bool {
 	if filterTree == nil { // all pass when filter list is empty
 		return true
+	}
+	return filterTree.Search(keyBytes)
+}
+
+func CheckBlock(filterTree *Trie, keyBytes []byte) bool {
+	if filterTree == nil { // all pass when filter list is empty
+		return false
 	}
 	return filterTree.Search(keyBytes)
 }

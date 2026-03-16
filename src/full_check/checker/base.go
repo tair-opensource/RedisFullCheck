@@ -1,10 +1,10 @@
 package checker
 
 import (
-	"full_check/common"
-	"sync"
-	"full_check/metric"
 	"full_check/client"
+	"full_check/common"
+	"full_check/metric"
+	"sync"
 )
 
 type FullCheckParameter struct {
@@ -16,11 +16,12 @@ type FullCheckParameter struct {
 	BatchCount   int
 	Parallel     int
 	FilterTree   *common.Trie
+	BlockTree    *common.Trie
 }
 
 type VerifierBase struct {
-	Stat         *metric.Stat
-	Param        *FullCheckParameter
+	Stat  *metric.Stat
+	Param *FullCheckParameter
 }
 
 func (p *VerifierBase) IncrKeyStat(oneKeyInfo *common.Key) {

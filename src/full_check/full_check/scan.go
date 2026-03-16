@@ -1,11 +1,11 @@
 package full_check
 
 import (
-	"strconv"
 	"fmt"
+	"strconv"
 
-	"full_check/common"
 	"full_check/client"
+	"full_check/common"
 
 	"github.com/jinzhu/copier"
 	"sync"
@@ -91,6 +91,11 @@ func (p *FullCheck) ScanFromSourceRedis(allKeys chan<- []*common.Key) {
 
 					// check filter list
 					if common.CheckFilter(p.FilterTree, bytes) == false {
+						continue
+					}
+
+					// Check block list
+					if common.CheckBlock(p.BlockTree, bytes) == true {
 						continue
 					}
 
