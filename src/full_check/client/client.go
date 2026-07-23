@@ -1,13 +1,14 @@
 package client
 
 import (
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	"full_check/common"
 
@@ -28,6 +29,7 @@ type RedisHost struct {
 	Authtype     string // "auth" or "adminauth"
 	DBType       int
 	DBFilterList map[int]struct{} // whitelist
+	TLSConfig    *tls.Config
 }
 
 func (p RedisHost) String() string {
@@ -91,12 +93,15 @@ func (p *RedisClient) Connect() error {
 	var err error
 	if p.redisHost.IsCluster() == false {
 		// single db or proxy
-		if p.redisHost.TimeoutMs == 0 {
-			p.conn, err = redis.Dial("tcp", p.redisHost.Addr[0])
-		} else {
-			p.conn, err = redis.DialTimeout("tcp", p.redisHost.Addr[0], time.Millisecond*time.Duration(p.redisHost.TimeoutMs),
-				time.Millisecond*time.Duration(p.redisHost.TimeoutMs), time.Millisecond*time.Duration(p.redisHost.TimeoutMs))
-		}
+		p.conn, err = p.dial(p.redisHost.Addr[0])
+	} else if p.redisHost.TLSConfig != nil {
+		p.conn, err = NewTLSClusterConn(TLSClusterOptions{
+			StartNodes: p.redisHost.Addr,
+			Password:   p.redisHost.Password,
+			AuthType:   p.redisHost.Authtype,
+			Timeout:    time.Duration(p.redisHost.TimeoutMs) * time.Millisecond,
+			TLSConfig:  p.redisHost.TLSConfig,
+		})
 	} else {
 		// cluster
 		cluster, err := redigoCluster.NewCluster(
@@ -140,6 +145,18 @@ func (p *RedisClient) Connect() error {
 	return nil
 }
 
+func (p *RedisClient) dial(address string) (redis.Conn, error) {
+	options := make([]redis.DialOption, 0, 5)
+	if p.redisHost.TimeoutMs != 0 {
+		timeout := time.Duration(p.redisHost.TimeoutMs) * time.Millisecond
+		options = append(options, redis.DialConnectTimeout(timeout), redis.DialReadTimeout(timeout), redis.DialWriteTimeout(timeout))
+	}
+	if p.redisHost.TLSConfig != nil {
+		options = append(options, redis.DialUseTLS(true), redis.DialTLSConfig(p.redisHost.TLSConfig))
+	}
+	return redis.Dial("tcp", address, options...)
+}
+
 func (p *RedisClient) Do(commandName string, args ...interface{}) (interface{}, error) {
 	var err error
 	var result interface{}
@@ -179,7 +196,7 @@ type combine struct {
 }
 
 func (c combine) String() string {
-	all := make([]string, 0, len(c.params) + 1)
+	all := make([]string, 0, len(c.params)+1)
 	all = append(all, c.command)
 	for _, ele := range c.params {
 		all = append(all, string(ele.([]byte)))

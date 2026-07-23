@@ -15,7 +15,7 @@ result.db.*
 dump.data
 runtime.trace
 
-bin/redis-full-check
+bin/redis-full-check*
 
 .DS_Store
 
