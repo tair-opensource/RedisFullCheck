@@ -6,14 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	"full_check/configure"
-	"full_check/full_check"
 	"full_check/checker"
 	"full_check/client"
 	"full_check/common"
+	"full_check/configure"
+	"full_check/full_check"
 
-	"github.com/jessevdk/go-flags"
 	"github.com/gugemichael/nimo4go"
+	"github.com/jessevdk/go-flags"
 )
 
 var VERSION = "$"
@@ -89,6 +89,18 @@ func main() {
 	if conf.Opts.TargetAuthType != "auth" && conf.Opts.TargetAuthType != "adminauth" {
 		panic(common.Logger.Errorf("invalid targetauthtype %s, expect auth/adminauth", conf.Opts.TargetAuthType))
 	}
+	sourceTLSConfig, err := client.LoadTLSConfig(conf.Opts.SourceTLS, conf.Opts.SourceTLSCAFile,
+		conf.Opts.SourceTLSCertFile, conf.Opts.SourceTLSKeyFile, conf.Opts.SourceTLSServerName,
+		conf.Opts.SourceTLSSkipVerify)
+	if err != nil {
+		panic(common.Logger.Errorf("invalid source TLS configuration: %v", err))
+	}
+	targetTLSConfig, err := client.LoadTLSConfig(conf.Opts.TargetTLS, conf.Opts.TargetTLSCAFile,
+		conf.Opts.TargetTLSCertFile, conf.Opts.TargetTLSKeyFile, conf.Opts.TargetTLSServerName,
+		conf.Opts.TargetTLSSkipVerify)
+	if err != nil {
+		panic(common.Logger.Errorf("invalid target TLS configuration: %v", err))
+	}
 	if conf.Opts.CompareMode < full_check.FullValue || conf.Opts.CompareMode > full_check.FullValueWithOutline {
 		panic(common.Logger.Errorf("invalid compare mode %d", conf.Opts.CompareMode))
 	}
@@ -100,7 +112,8 @@ func main() {
 		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
 
-	sourceAddressList, err := client.HandleAddress(conf.Opts.SourceAddr, conf.Opts.SourcePassword, conf.Opts.SourceAuthType)
+	sourceAddressList, err := client.HandleAddress(conf.Opts.SourceAddr, conf.Opts.SourcePassword,
+		conf.Opts.SourceAuthType, sourceTLSConfig)
 	if err != nil {
 		panic(common.Logger.Errorf("source address[%v] illegal[%v]", conf.Opts.SourceAddr, err))
 	} else if len(sourceAddressList) > 1 && conf.Opts.SourceDBType != 1 {
@@ -109,7 +122,8 @@ func main() {
 		panic(common.Logger.Errorf("input source address is empty"))
 	}
 
-	targetAddressList, err := client.HandleAddress(conf.Opts.TargetAddr, conf.Opts.TargetPassword, conf.Opts.TargetAuthType)
+	targetAddressList, err := client.HandleAddress(conf.Opts.TargetAddr, conf.Opts.TargetPassword,
+		conf.Opts.TargetAuthType, targetTLSConfig)
 	if err != nil {
 		panic(common.Logger.Errorf("target address[%v] illegal[%v]", conf.Opts.TargetAddr, err))
 	} else if len(targetAddressList) > 1 && conf.Opts.TargetDBType != 1 {
@@ -146,6 +160,7 @@ func main() {
 			Authtype:     conf.Opts.SourceAuthType,
 			DBType:       conf.Opts.SourceDBType,
 			DBFilterList: common.FilterDBList(conf.Opts.SourceDBFilterList),
+			TLSConfig:    sourceTLSConfig,
 		},
 		TargetHost: client.RedisHost{
 			Addr:         targetAddressList,
@@ -155,6 +170,7 @@ func main() {
 			Authtype:     conf.Opts.TargetAuthType,
 			DBType:       conf.Opts.TargetDBType,
 			DBFilterList: common.FilterDBList(conf.Opts.TargetDBFilterList),
+			TLSConfig:    targetTLSConfig,
 		},
 		ResultDBFile: conf.Opts.ResultDBFile,
 		CompareCount: compareCount,
@@ -164,7 +180,14 @@ func main() {
 		FilterTree:   filterTree,
 	}
 
-	common.Logger.Info("configuration: ", conf.Opts)
+	loggedOpts := conf.Opts
+	if loggedOpts.SourcePassword != "" {
+		loggedOpts.SourcePassword = "[REDACTED]"
+	}
+	if loggedOpts.TargetPassword != "" {
+		loggedOpts.TargetPassword = "[REDACTED]"
+	}
+	common.Logger.Info("configuration: ", loggedOpts)
 	common.Logger.Info("---------")
 
 	fullCheck := full_check.NewFullCheck(fullCheckParameter, full_check.CheckType(conf.Opts.CompareMode))

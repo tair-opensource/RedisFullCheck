@@ -45,9 +45,21 @@ Application Options:
   -s, --source=SOURCE               Set host:port of source redis.
   -p, --sourcepassword=Password     Set source redis password (format: password or username:password)
       --sourceauthtype=AUTH-TYPE    useless for opensource redis, valid value:auth/adminauth (default: auth)
+      --sourcetls                    Enable TLS for all source Redis connections
+      --sourcetlscacert=FILE         CA certificate file for source Redis TLS verification
+      --sourcetlscert=FILE           Client certificate file for source Redis mutual TLS
+      --sourcetlskey=FILE            Client private key file for source Redis mutual TLS
+      --sourcetlsservername=NAME     Override the source Redis TLS certificate server name
+      --sourcetlsskipverify          Skip source Redis TLS certificate verification (insecure)
   -t, --target=TARGET               Set host:port of target redis.
   -a, --targetpassword=Password     Set target redis password (format: password or username:password)
       --targetauthtype=AUTH-TYPE    useless for opensource redis, valid value:auth/adminauth (default: auth)
+      --targettls                    Enable TLS for all target Redis connections
+      --targettlscacert=FILE         CA certificate file for target Redis TLS verification
+      --targettlscert=FILE           Client certificate file for target Redis mutual TLS
+      --targettlskey=FILE            Client private key file for target Redis mutual TLS
+      --targettlsservername=NAME     Override the target Redis TLS certificate server name
+      --targettlsskipverify          Skip target Redis TLS certificate verification (insecure)
   -d, --db=Sqlite3-DB-FILE          sqlite3 db file for store result. If exist, it will be removed and a new file is created. (default: result.db)
       --comparetimes=COUNT          Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison
                                     will be done on the previous results. (default: 3)
@@ -81,6 +93,26 @@ Or you can build redis-full-check yourself according to the following steps:<br>
 *  cd RedisFullCheck/
 *  ./build.sh
 *  ./bin/redis-full-check -s $(source_redis_ip_port) -p $(source_password) -t $(target_redis_ip_port) -a $(target_password) # these parameters should be given by users
+
+## TLS
+
+TLS is configured independently for the source and target. If the CA is already trusted by the operating system, the `tlscacert` option can be omitted. Client certificate and key options must be specified together when mutual TLS is required.
+
+```sh
+./bin/redis-full-check \
+  -s source.example.com:6379 -p source_password --sourcetls --sourcetlscacert /path/to/ca.crt \
+  -t target.example.com:6379 -a target_password --targettls --targettlscacert /path/to/ca.crt
+```
+
+In Redis Cluster mode, TLS applies to the startup node, every primary returned by `CLUSTER SLOTS`, redirects, and the per-node full scan connections. Use the role prefix to discover all primary nodes from one startup node:
+
+```sh
+./bin/redis-full-check \
+  -s 'master@redis-cluster.example.com:6379' --sourcedbtype 1 --sourcetls --sourcetlscacert /path/to/ca.crt \
+  -t 'master@target-cluster.example.com:6379' --targetdbtype 1 --targettls --targettlscacert /path/to/ca.crt
+```
+
+By default, each cluster node certificate is verified against the hostname or IP advertised by Redis. Set `sourcetlsservername` or `targettlsservername` only when every node certificate uses the same explicit server name. The `tlsskipverify` options disable certificate verification and should only be used for temporary diagnostics.
 
 Here comes the sqlite3 example to display the conflict result:<br>
 ```

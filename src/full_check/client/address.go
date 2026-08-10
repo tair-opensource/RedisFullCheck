@@ -1,8 +1,9 @@
 package client
 
 import (
-	"strings"
+	"crypto/tls"
 	"fmt"
+	"strings"
 
 	"full_check/common"
 )
@@ -15,7 +16,7 @@ const (
 	RoleSlave  = "slave"
 )
 
-func HandleAddress(address, password, authType string) ([]string, error) {
+func HandleAddress(address, password, authType string, tlsConfig *tls.Config) ([]string, error) {
 	if strings.Contains(address, AddressSplitter) {
 		arr := strings.Split(address, AddressSplitter)
 		if len(arr) != 2 {
@@ -33,7 +34,7 @@ func HandleAddress(address, password, authType string) ([]string, error) {
 			role = RoleMaster
 		}
 
-		return fetchNodeList(clusterList[0], password, authType, role)
+		return fetchNodeList(clusterList[0], password, authType, role, tlsConfig)
 	} else {
 		clusterList := strings.Split(address, AddressClusterSplitter)
 		if len(clusterList) <= 1 {
@@ -41,7 +42,7 @@ func HandleAddress(address, password, authType string) ([]string, error) {
 		}
 
 		// fetch master
-		masterList, err := fetchNodeList(clusterList[0], password, authType, common.TypeMaster)
+		masterList, err := fetchNodeList(clusterList[0], password, authType, common.TypeMaster, tlsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +51,7 @@ func HandleAddress(address, password, authType string) ([]string, error) {
 			return clusterList, nil
 		}
 
-		slaveList, err := fetchNodeList(clusterList[0], password, authType, common.TypeSlave)
+		slaveList, err := fetchNodeList(clusterList[0], password, authType, common.TypeSlave, tlsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -65,12 +66,13 @@ func HandleAddress(address, password, authType string) ([]string, error) {
 	}
 }
 
-func fetchNodeList(oneNode, password, authType, role string) ([]string, error) {
+func fetchNodeList(oneNode, password, authType, role string, tlsConfig *tls.Config) ([]string, error) {
 	// create client to fetch
 	client, err := NewRedisClient(RedisHost{
-		Addr:     []string{oneNode},
-		Password: password,
-		Authtype: authType,
+		Addr:      []string{oneNode},
+		Password:  password,
+		Authtype:  authType,
+		TLSConfig: tlsConfig,
 	}, 0)
 	if err != nil {
 		return nil, fmt.Errorf("fetch cluster info failed[%v]", err)
