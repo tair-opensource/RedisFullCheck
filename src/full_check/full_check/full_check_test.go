@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 )
 
@@ -236,6 +237,126 @@ func (suite *RedisFullCheckTestSuite) TestKeyOutline() {
 	suite.checkKey(statem, "ListDiffFields", "value", "", 0)
 	suite.checkKey(statem, "ListSame", "", "", 0)
 	suite.checkKey(statem, "ListDiffField", "", "", 0)
+}
+
+// TestTargetDBMap checks that --targetdbmap compares one source db with another target db.
+// The data is identical between source db3 and target db1, so without the map every key
+// should be reported as lack_target, and with "--targetdbmap=3:1" only MapLackTargetKey
+// should be reported.
+func (suite *RedisFullCheckTestSuite) TestTargetDBMap() {
+	const (
+		sourceDB = 3
+		targetDB = 1
+	)
+
+	// clean the dbs used by this test
+	for _, addr := range []string{"127.0.0.1:6000", "127.0.0.1:7000"} {
+		conn, err := redis.Dial("tcp", addr)
+		if err != nil {
+			panic(err.Error())
+		}
+		for _, db := range []int{sourceDB, targetDB} {
+			conn.Do("SELECT", db)
+			conn.Do("FLUSHDB")
+		}
+		conn.Close()
+	}
+
+	// source db3: two identical keys plus one key that doesn't exist on the target
+	sourceConn, err := redis.Dial("tcp", "127.0.0.1:6000")
+	if err != nil {
+		panic(err.Error())
+	}
+	sourceConn.Do("SELECT", sourceDB)
+	sourceConn.Do("SET", "MapSameKey", "val")
+	sourceConn.Do("HSET", "MapSameHash", "f1", "v1")
+	sourceConn.Do("SET", "MapLackTargetKey", "val")
+	sourceConn.Close()
+
+	// target db1: the same two keys
+	targetConn, err := redis.Dial("tcp", "127.0.0.1:7000")
+	if err != nil {
+		panic(err.Error())
+	}
+	targetConn.Do("SELECT", targetDB)
+	targetConn.Do("SET", "MapSameKey", "val")
+	targetConn.Do("HSET", "MapSameHash", "f1", "v1")
+	targetConn.Close()
+
+	// 1. with db mapping: source db3 is compared with target db1
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf(
+		"./full_check -s 127.0.0.1:6000 -p '' -t 127.0.0.1:7000 -a '' --sourcedbfilterlist=%d "+
+			"--targetdbmap=%d:%d --comparetimes=1 --comparemode=1 --interval=1 --db result_dbmap.db --log dbmap.log",
+		sourceDB, sourceDB, targetDB))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		panic(fmt.Sprintf("run with targetdbmap failed: %v, output: %s", err, string(out)))
+	}
+
+	db, err := sql.Open("sqlite3", "result_dbmap.db.1")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	statem, err := db.Prepare(fmt.Sprintf("SELECT * FROM FINAL_RESULT WHERE Key=?"))
+	if err != nil {
+		panic(err)
+	}
+
+	suite.checkKeyInDb(statem, "MapSameKey", "", "", strconv.Itoa(sourceDB), 0)
+	suite.checkKeyInDb(statem, "MapSameHash", "", "", strconv.Itoa(sourceDB), 0)
+	suite.checkKeyInDb(statem, "MapLackTargetKey", "lack_target", "", strconv.Itoa(sourceDB), 1)
+
+	// 2. without db mapping: source db3 is compared with target db3 which is empty
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf(
+		"./full_check -s 127.0.0.1:6000 -p '' -t 127.0.0.1:7000 -a '' --sourcedbfilterlist=%d "+
+			"--comparetimes=1 --comparemode=1 --interval=1 --db result_nodbmap.db --log dbmap.log",
+		sourceDB))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		panic(fmt.Sprintf("run without targetdbmap failed: %v, output: %s", err, string(out)))
+	}
+
+	db2, err := sql.Open("sqlite3", "result_nodbmap.db.1")
+	if err != nil {
+		panic(err)
+	}
+	defer db2.Close()
+
+	statem2, err := db2.Prepare(fmt.Sprintf("SELECT * FROM FINAL_RESULT WHERE Key=?"))
+	if err != nil {
+		panic(err)
+	}
+	defer statem2.Close()
+
+	suite.checkKeyInDb(statem2, "MapSameKey", "lack_target", "", strconv.Itoa(sourceDB), 1)
+	suite.checkKeyInDb(statem2, "MapSameHash", "lack_target", "", strconv.Itoa(sourceDB), 1)
+	suite.checkKeyInDb(statem2, "MapLackTargetKey", "lack_target", "", strconv.Itoa(sourceDB), 1)
+}
+
+// checkKeyInDb is the same as checkKey but also checks the schema(source db) column.
+func (suite *RedisFullCheckTestSuite) checkKeyInDb(statem *sql.Stmt, key string, inconsistentType string, field string, db string, num int) {
+	rows, err := statem.Query(key)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		var InstanceA, InstanceB, Key, Schema, InconsistentType, Extra string
+		if err := rows.Scan(&InstanceA, &InstanceB, &Key, &Schema, &InconsistentType, &Extra); err != nil {
+			panic(err)
+		}
+
+		assert.Equal(suite.T(), key, Key)
+		assert.Equal(suite.T(), db, Schema)
+		assert.Equal(suite.T(), inconsistentType, InconsistentType)
+		assert.Equal(suite.T(), field, Extra)
+
+		count += 1
+	}
+
+	assert.Equal(suite.T(), count, num)
 }
 
 func (suite *RedisFullCheckTestSuite) checkKey(statem *sql.Stmt, key string, inconsistentType string, field string, num int) {

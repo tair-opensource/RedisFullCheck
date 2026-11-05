@@ -34,7 +34,8 @@ type FullCheck struct {
 	checker.FullCheckParameter
 
 	stat                 metric.Stat
-	currentDB            int32
+	currentDB            int32 // source db, also the db stored in the result sqlite
+	currentTargetDB      int32 // target db that currentDB is compared with
 	times                int
 	db                   [100]*sql.DB
 	sourcePhysicalDBList []string
@@ -208,6 +209,14 @@ func (p *FullCheck) IncrScanStat(a int) {
 	p.stat.Scan.Inc(a)
 }
 
+// TargetDB returns the target db which the given source db should be compared with.
+func (p *FullCheck) TargetDB(sourceDB int32) int32 {
+	if targetDB, ok := p.TargetDBMap[int(sourceDB)]; ok {
+		return int32(targetDB)
+	}
+	return sourceDB
+}
+
 func (p *FullCheck) Start() {
 	var err error
 
@@ -238,9 +247,17 @@ func (p *FullCheck) Start() {
 	sourceClient.Close()
 	for db, keyNum := range p.sourceLogicalDBMap {
 		if p.SourceHost.IsCluster() == true {
-			common.Logger.Infof("db=%d:keys=%d(inaccurate for type cluster)", db, keyNum)
+			common.Logger.Infof("db=%d:keys=%d(inaccurate for type cluster) -> target db=%d", db, keyNum, p.TargetDB(db))
 		} else {
-			common.Logger.Infof("db=%d:keys=%d", db, keyNum)
+			common.Logger.Infof("db=%d:keys=%d -> target db=%d", db, keyNum, p.TargetDB(db))
+		}
+	}
+	if len(p.TargetDBMap) != 0 {
+		for sourceDB := range p.TargetDBMap {
+			if _, ok := p.sourceLogicalDBMap[int32(sourceDB)]; !ok {
+				common.Logger.Warnf("source db=%d in targetdbmap is not in the source keyspace, skipped",
+					sourceDB)
+			}
 		}
 	}
 
@@ -254,6 +271,7 @@ func (p *FullCheck) Start() {
 
 		for db := range p.sourceLogicalDBMap {
 			p.currentDB = db
+			p.currentTargetDB = p.TargetDB(db)
 			p.stat.Reset(false)
 			// init stat timer
 			tickerStat := time.NewTicker(time.Second * common.StatRollFrequency)
@@ -394,10 +412,10 @@ func (p *FullCheck) VerifyAllKeyInfo(allKeys <-chan []*common.Key, conflictKey c
 	}
 	defer sourceClient.Close()
 
-	targetClient, err := client.NewRedisClient(p.TargetHost, p.currentDB)
+	targetClient, err := client.NewRedisClient(p.TargetHost, p.currentTargetDB)
 	if err != nil {
 		panic(common.Logger.Errorf("create redis client with host[%v] db[%v] error[%v]",
-			p.TargetHost, p.currentDB, err))
+			p.TargetHost, p.currentTargetDB, err))
 	}
 	defer targetClient.Close()
 

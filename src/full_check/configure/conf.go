@@ -11,6 +11,7 @@ var Opts struct {
 	TargetAuthType     string `long:"targetauthtype" value-name:"AUTH-TYPE" default:"auth" description:"useless for opensource redis, valid value:auth/adminauth" `
 	TargetDBType       int    `long:"targetdbtype" default:"0" description:"0: db, 1: cluster 2: aliyun proxy 3: tencent proxy"`
 	TargetDBFilterList string `long:"targetdbfilterlist" default:"-1" description:"db white list that need to be compared, -1 means fetch all, \"0;5;15\" means fetch db 0, 5, and 15"`
+	TargetDBMap        string `long:"targetdbmap" value-name:"MAP" default:"" description:"map source db to target db, format 'source:target' split by ';', e.g. \"313:1;413:2\" means source db313 is compared with target db1 and source db413 with target db2. dbs not in the map are compared with the target db of the same number"`
 	ResultDBFile       string `short:"d" long:"db" value-name:"Sqlite3-DB-FILE" default:"result.db" description:"sqlite3 db file for store result. If exist, it will be removed and a new file is created."`
 	ResultFile         string `long:"result" value-name:"FILE" description:"store all diff result into the file, format is 'db\tdiff-type\tkey\tfield'"`
 	CompareTimes       string `long:"comparetimes" value-name:"COUNT" default:"3" description:"Total compare count, at least 1. In the first round, all keys will be compared. The subsequent rounds of the comparison will be done on the previous results."`

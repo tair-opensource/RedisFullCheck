@@ -100,6 +100,21 @@ func main() {
 		common.BigKeyThreshold = conf.Opts.BigKeyThreshold
 	}
 
+	targetDBMap, err := common.ParseDBMap(conf.Opts.TargetDBMap)
+	if err != nil {
+		panic(common.Logger.Errorf("invalid option targetdbmap: %v", err))
+	}
+	if len(targetDBMap) != 0 {
+		common.Logger.Infof("target db map enabled: %v", targetDBMap)
+	}
+
+	// targetdbfilterlist never takes effect: only the source keyspace drives the comparison
+	// and the target is always accessed with the mapped source db.
+	if conf.Opts.TargetDBFilterList != "-1" {
+		common.Logger.Warnf("option targetdbfilterlist[%v] is ignored, use --targetdbmap to map source db to target db",
+			conf.Opts.TargetDBFilterList)
+	}
+
 	sourceAddressList, err := client.HandleAddress(conf.Opts.SourceAddr, conf.Opts.SourcePassword, conf.Opts.SourceAuthType)
 	if err != nil {
 		panic(common.Logger.Errorf("source address[%v] illegal[%v]", conf.Opts.SourceAddr, err))
@@ -156,6 +171,7 @@ func main() {
 			DBType:       conf.Opts.TargetDBType,
 			DBFilterList: common.FilterDBList(conf.Opts.TargetDBFilterList),
 		},
+		TargetDBMap:  targetDBMap,
 		ResultDBFile: conf.Opts.ResultDBFile,
 		CompareCount: compareCount,
 		Interval:     conf.Opts.Interval,

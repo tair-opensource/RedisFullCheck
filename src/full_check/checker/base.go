@@ -10,6 +10,7 @@ import (
 type FullCheckParameter struct {
 	SourceHost   client.RedisHost
 	TargetHost   client.RedisHost
+	TargetDBMap  map[int]int
 	ResultDBFile string
 	CompareCount int
 	Interval     int
